@@ -580,11 +580,14 @@
                             <h3 class="font-bold text-chocolate text-sm">🏬 Seller Center (${sellerName})</h3>
                             <p class="text-xs text-gray-600 mt-1">Kelola produk, pesanan, kategori, & promo toko Anda.</p>
                         </div>
+                        <button onclick="showSellerDashboard()" class="w-full p-3 bg-white border border-orange-100 rounded-xl font-bold text-xs text-chocolate shadow-sm text-left">🏪 Dashboard Seller</button>
+                        <button onclick="showSellerChatList()" class="w-full p-3 bg-white border border-orange-100 rounded-xl font-bold text-xs text-chocolate shadow-sm text-left">💬 Kelola Pesan Pembeli</button>
                         <button onclick="showManageOrders()" class="w-full p-3 bg-white border border-orange-100 rounded-xl font-bold text-xs text-chocolate shadow-sm text-left">📦 Kelola Pesanan Masuk & Label</button>
                         <button onclick="showPOSKasir()" class="w-full p-3 bg-white border border-orange-100 rounded-xl font-bold text-xs text-chocolate shadow-sm text-left">🖥 POS Kasir Offline Pro</button>
                         <button onclick="showManageProducts()" class="w-full p-3 bg-white border border-orange-100 rounded-xl font-bold text-xs text-chocolate shadow-sm text-left">🍰 Kelola & Tambah Produk</button>
                         <button onclick="showManageCategories()" class="w-full p-3 bg-white border border-orange-100 rounded-xl font-bold text-xs text-chocolate shadow-sm text-left">🏷️ Kelola Kategori Toko</button>
                         <button onclick="showManagePromos()" class="w-full p-3 bg-white border border-orange-100 rounded-xl font-bold text-xs text-chocolate shadow-sm text-left">🎁 Kelola Promo & Voucher</button>
+                        <button onclick="showShippingSettings()" class="w-full p-3 bg-white border border-orange-100 rounded-xl font-bold text-xs text-chocolate shadow-sm text-left">🚚 Pengaturan Pengiriman Toko</button>
                         <button onclick="logoutSeller()" class="w-full p-3 bg-red-50 text-red-600 border border-red-200 rounded-xl font-bold text-xs text-left">🚪 Keluar Mode Seller</button>
                     </div>
                 `;
@@ -624,6 +627,7 @@
                     localStorage.setItem('is_seller', 'true');
                     localStorage.setItem('seller_name', sellerName);
                     showMessage('Berhasil', 'Selamat datang Seller!');
+                    refreshSellerData().catch(() => {});
                     showAccount();
                 } else {
                     showMessage('Gagal', res.message || 'Login gagal.');
@@ -758,11 +762,506 @@
             });
         }
 
-        function showPOSKasir() { showMessage('POS Kasir', 'Fitur POS Kasir Pro siap digunakan dari mode Seller.'); }
-        function showManageOrders() { showMessage('Kelola Pesanan', 'Pengaturan kelola pesanan.'); }
-        function showManageProducts() { showMessage('Kelola Produk', 'Fitur tambah/edit produk.'); }
-        function showManageCategories() { showMessage('Kelola Kategori', 'Pengaturan kategori toko.'); }
-        function showManagePromos() { showMessage('Kelola Promo', 'Pengaturan promo aktif.'); }
+
+        // ================= SELLER CENTER: API HELPER =================
+        async function apiGet(action, params = {}) {
+            const query = new URLSearchParams({ action, ...params });
+            const response = await fetch(`${BASE_URL}?${query.toString()}`, { cache: 'no-store' });
+            if (!response.ok) throw new Error(`Server mengembalikan HTTP ${response.status}`);
+            const result = await response.json();
+            if (result && result.success === false) throw new Error(result.message || 'Permintaan gagal.');
+            return result;
+        }
+
+        async function apiPost(action, data = {}) {
+            const response = await fetch(BASE_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                body: JSON.stringify({ action, ...data })
+            });
+            if (!response.ok) throw new Error(`Server mengembalikan HTTP ${response.status}`);
+            const result = await response.json();
+            if (result && result.success === false) throw new Error(result.message || 'Permintaan gagal.');
+            return result;
+        }
+
+        function requireSeller() {
+            if (!isSellerLoggedIn) {
+                showMessage('Akses Seller', 'Silakan login sebagai seller terlebih dahulu.');
+                showSellerLoginModal();
+                return false;
+            }
+            return true;
+        }
+
+        function safeText(value) {
+            return String(value == null ? '' : value).replace(/[&<>"']/g, ch => ({
+                '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+            }[ch]));
+        }
+
+        function sellerPage(title, body, back = 'showAccount()') {
+            const container = document.getElementById('contentContainer');
+            window.currentViewFunc = showAccount;
+            container.innerHTML = `
+                <div class="space-y-4 pb-20">
+                    <button onclick="${back}" class="px-3 py-2 rounded-xl bg-white border border-orange-200 text-xs font-bold text-chocolate">← Kembali ke Seller Center</button>
+                    <div class="bg-gradient-to-r from-pink-100 to-orange-100 border border-pink-200 rounded-2xl p-4">
+                        <h2 class="text-lg font-extrabold text-chocolate">${title}</h2>
+                        <p class="text-xs text-gray-600 mt-1">Aang Cakeshop · Seller Center</p>
+                    </div>
+                    ${body}
+                </div>`;
+        }
+
+        function sellerField(label, name, value = '', type = 'text', placeholder = '') {
+            return `<label class="block space-y-1"><span class="text-xs font-bold text-chocolate">${label}</span>
+                <input name="${name}" type="${type}" value="${safeText(value)}" placeholder="${safeText(placeholder)}"
+                class="w-full p-3 rounded-xl border border-orange-200 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-pink-200"></label>`;
+        }
+
+        function sellerButton(label, onclick, extra = '') {
+            return `<button type="button" onclick="${onclick}" class="px-4 py-3 rounded-xl bg-pink-btn text-white font-bold text-xs ${extra}">${label}</button>`;
+        }
+
+        function readFileAsDataURL(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = () => resolve(String(reader.result || ''));
+                reader.onerror = reject;
+                reader.readAsDataURL(file);
+            });
+        }
+
+        // ================= DASHBOARD SELLER =================
+        async function showSellerDashboard() {
+            if (!requireSeller()) return;
+            window.currentViewFunc = showSellerDashboard;
+            sellerPage('Dashboard Seller', `<div id="sellerDashboardStats" class="grid grid-cols-2 gap-3">
+                <div class="bg-white p-4 rounded-2xl border border-orange-100"><p class="text-xs text-gray-500">Produk</p><p class="text-2xl font-extrabold text-chocolate">${products.length}</p></div>
+                <div class="bg-white p-4 rounded-2xl border border-orange-100"><p class="text-xs text-gray-500">Kategori</p><p class="text-2xl font-extrabold text-chocolate">${categories.length}</p></div>
+                <div class="bg-white p-4 rounded-2xl border border-orange-100"><p class="text-xs text-gray-500">Promo</p><p class="text-2xl font-extrabold text-chocolate">${promos.length}</p></div>
+                <div class="bg-white p-4 rounded-2xl border border-orange-100"><p class="text-xs text-gray-500">Penjualan hari ini</p><p id="todaySalesValue" class="text-lg font-extrabold text-pink-custom">Memuat...</p></div>
+                </div>
+                <div class="space-y-2">
+                    ${sellerButton('💬 Kelola Chat Pembeli', 'showSellerChatList()', 'w-full')}
+                    ${sellerButton('📦 Kelola Pesanan', 'showManageOrders()', 'w-full')}
+                    ${sellerButton('🍰 Kelola Produk', 'showManageProducts()', 'w-full')}
+                    ${sellerButton('🖥 Buka POS Kasir', 'showPOSKasir()', 'w-full')}
+                </div>`);
+            try {
+                const result = await apiGet('today_sales');
+                const el = document.getElementById('todaySalesValue');
+                if (el) el.textContent = formatRupiah(result.today_sales || 0);
+            } catch (error) {
+                const el = document.getElementById('todaySalesValue');
+                if (el) el.textContent = 'Tidak tersedia';
+            }
+        }
+
+        // ================= PESANAN MASUK & LABEL =================
+        async function showManageOrders() {
+            if (!requireSeller()) return;
+            window.currentViewFunc = showManageOrders;
+            sellerPage('Kelola Pesanan Masuk & Label', '<p class="text-xs text-gray-500">Memuat pesanan...</p>');
+            const container = document.getElementById('contentContainer');
+            try {
+                const result = await apiGet('orders');
+                const orders = Array.isArray(result.data) ? result.data : [];
+                window.currentSellerOrders = orders;
+                const body = orders.length ? orders.map((o, index) => {
+                    const id = o.order_id || o.orderId || o.id || '-';
+                    const customer = o.customer || o.user_id || o.name || 'Pelanggan';
+                    const address = o.address || '-';
+                    const status = o.status || 'Diproses';
+                    const courier = o.courier || o.courier_service || '-';
+                    const resi = o.awb || o.resi || '';
+                    const date = o.created_at || o.date || '-';
+                    const total = o.total || o.grand_total || o.total_price || 0;
+                    const proof = o.proof_url || o.proofUrl || '';
+                    return `<article class="bg-white p-4 rounded-2xl border border-orange-100 space-y-3">
+                        <div class="flex justify-between gap-2"><strong class="text-sm text-chocolate">📦 #${safeText(id)}</strong><span class="text-xs font-bold text-pink-custom">${safeText(status)}</span></div>
+                        <p class="text-xs text-gray-600">📅 ${safeText(date)}<br>👤 ${safeText(customer)}<br>📍 ${safeText(address)}<br>💰 ${formatRupiah(total)}<br>🚚 ${safeText(courier)}<br>Resi: ${safeText(resi || 'Belum diinput')}</p>
+                        ${proof ? `<a href="${safeText(proof)}" target="_blank" rel="noopener" class="text-xs font-bold text-pink-custom underline">Lihat bukti pembayaran</a>` : '<p class="text-xs text-gray-400">Bukti bayar tidak tersedia / COD.</p>'}
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                            <label class="text-xs text-gray-600">Status pesanan
+                                <select id="orderStatus_${index}" class="w-full mt-1 p-2 rounded-lg border border-orange-200 text-xs">
+                                    ${['Menunggu Pembayaran','Diproses','Dikemas','Dikirim','Selesai','Dibatalkan'].map(s => `<option ${s.toLowerCase() === String(status).toLowerCase() ? 'selected' : ''}>${s}</option>`).join('')}
+                                </select>
+                            </label>
+                            <label class="text-xs text-gray-600">Nomor resi
+                                <input id="orderResi_${index}" value="${safeText(resi)}" placeholder="Masukkan nomor resi" class="w-full mt-1 p-2 rounded-lg border border-orange-200 text-xs">
+                            </label>
+                        </div>
+                        <div class="flex flex-wrap gap-2">
+                            ${sellerButton('Simpan Status', `saveOrderStatus('${safeText(id)}', ${index})`)}
+                            ${sellerButton('Simpan Resi & Tandai Dikirim', `saveOrderResi('${safeText(id)}', ${index})`)}
+                            <button onclick="printShippingLabelByIndex(${index})" class="px-4 py-3 rounded-xl bg-white border border-orange-200 text-chocolate font-bold text-xs">🖨 Cetak Label</button>
+                        </div>
+                    </article>`;
+                }).join('') : '<div class="bg-white rounded-2xl p-6 text-center text-sm text-gray-500 border border-orange-100">Belum ada pesanan masuk.</div>';
+                const current = document.getElementById('contentContainer');
+                current.innerHTML = `<div class="space-y-4 pb-20"><button onclick="showAccount()" class="px-3 py-2 rounded-xl bg-white border border-orange-200 text-xs font-bold text-chocolate">← Kembali ke Seller Center</button><div class="bg-gradient-to-r from-pink-100 to-orange-100 border border-pink-200 rounded-2xl p-4"><h2 class="text-lg font-extrabold text-chocolate">Kelola Pesanan Masuk & Label</h2><p class="text-xs text-gray-600 mt-1">${orders.length} pesanan</p></div>${body}<button onclick="showManageOrders()" class="w-full py-3 rounded-xl bg-white border border-orange-200 text-xs font-bold text-chocolate">↻ Muat Ulang Pesanan</button></div>`;
+            } catch (error) {
+                container.innerHTML = `<div class="space-y-3"><button onclick="showAccount()" class="text-xs font-bold text-chocolate">← Kembali</button><h2 class="font-bold text-chocolate">Kelola Pesanan</h2><p class="p-3 rounded-xl bg-red-50 text-red-700 text-xs">${safeText(error.message)}</p><button onclick="showManageOrders()" class="px-4 py-3 bg-pink-btn text-white rounded-xl text-xs font-bold">Coba Lagi</button></div>`;
+            }
+        }
+
+        async function saveOrderStatus(orderId, index) {
+            const status = document.getElementById(`orderStatus_${index}`)?.value;
+            if (!status) return;
+            try {
+                const res = await apiPost('update_order_status', { order_id: orderId, status });
+                showMessage('Pesanan', res.message || 'Status pesanan diperbarui.');
+                showManageOrders();
+            } catch (error) { showMessage('Gagal menyimpan status', error.message); }
+        }
+
+        async function saveOrderResi(orderId, index) {
+            const resi = document.getElementById(`orderResi_${index}`)?.value.trim();
+            if (!resi) return showMessage('Nomor Resi', 'Masukkan nomor resi terlebih dahulu.');
+            try {
+                const res = await apiPost('update_order_resi', { order_id: orderId, resi });
+                showMessage('Pesanan', res.message || 'Nomor resi berhasil disimpan.');
+                showManageOrders();
+            } catch (error) { showMessage('Gagal menyimpan resi', error.message); }
+        }
+
+        function printShippingLabelByIndex(index) {
+            const o = (window.currentSellerOrders || [])[index];
+            if (!o) return showMessage('Cetak Label', 'Data pesanan tidak ditemukan.');
+            printShippingLabel({
+                id: o.order_id || o.orderId || o.id || '-',
+                customer: o.customer || o.user_id || o.name || 'Pelanggan',
+                address: o.address || '-',
+                courier: o.courier || o.courier_service || '-',
+                total: Number(o.total || o.grand_total || o.total_price) || 0
+            });
+        }
+
+        function printShippingLabel(order) {
+            const popup = window.open('', '_blank', 'width=500,height=700');
+            if (!popup) return showMessage('Cetak Label', 'Izinkan pop-up browser untuk mencetak label.');
+            popup.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>Label ${safeText(order.id)}</title>
+                <style>body{font:14px Arial;padding:24px;color:#111}.label{border:2px dashed #333;padding:18px;max-width:420px}h2{text-align:center}p{line-height:1.5;overflow-wrap:anywhere}</style></head><body>
+                <div class="label"><h2>LABEL PENGIRIMAN PAKET<br>AANG CAKESHOP</h2><hr>
+                <p><b>No. Pesanan:</b> ${safeText(order.id)}</p><p><b>Penerima:</b> ${safeText(order.customer)}</p>
+                <p><b>Alamat:</b> ${safeText(order.address)}</p><p><b>Kurir:</b> ${safeText(order.courier)}</p>
+                <p><b>Total / COD:</b> ${formatRupiah(order.total)}</p><hr><p>Harap tangani dengan hati-hati — produk kue mudah rusak.</p></div>
+                <script>window.onload=()=>window.print()<\/script></body></html>`);
+            popup.document.close();
+        }
+
+        // ================= KELOLA PRODUK =================
+        async function showManageProducts() {
+            if (!requireSeller()) return;
+            await refreshSellerData();
+            window.currentViewFunc = showManageProducts;
+            const cards = products.length ? products.map(p => `<article class="bg-white p-3 rounded-2xl border border-orange-100 flex gap-3 items-start">
+                <img src="${safeText(p.image || (p.images && p.images[0]) || '')}" onerror="this.style.display='none'" class="w-20 h-20 object-cover rounded-xl bg-orange-50">
+                <div class="flex-1 min-w-0"><h3 class="font-bold text-sm text-chocolate">${safeText(p.name)}</h3><p class="text-xs text-gray-500 mt-1">${safeText(p.category)} · Stok ${Number(p.stock)||0}</p><p class="text-sm font-extrabold text-pink-custom mt-1">${formatRupiah(p.price)}</p><p class="text-xs text-gray-500 mt-1">${safeText(p.description || '')}</p>
+                <div class="flex flex-wrap gap-2 mt-2"><button onclick="showProductForm('${safeText(p.id)}')" class="px-3 py-2 rounded-lg bg-orange-50 text-chocolate text-xs font-bold">✏️ Edit</button><button onclick="deleteSellerProduct('${safeText(p.id)}')" class="px-3 py-2 rounded-lg bg-red-50 text-red-600 text-xs font-bold">🗑 Hapus</button></div></div>
+                </article>`).join('') : '<div class="p-5 rounded-xl bg-white border border-orange-100 text-sm text-gray-500 text-center">Belum ada produk. Tambahkan produk pertama Anda.</div>';
+            sellerPage('Kelola & Tambah Produk', `${sellerButton('➕ Tambah Produk Baru', "showProductForm('')", 'w-full')}<div class="space-y-3 mt-3">${cards}</div>`);
+        }
+
+        async function refreshSellerData() {
+            const [p, c, pr] = await Promise.all([apiGet('products'), apiGet('categories'), apiGet('promos')]);
+            if (p.success) products = p.data || [];
+            if (c.success) categories = c.data || [];
+            if (pr.success) promos = pr.data || [];
+        }
+
+        async function showProductForm(productId = '') {
+            if (!requireSeller()) return;
+            const product = products.find(p => String(p.id) === String(productId));
+            const cats = categories.length ? categories : getDefaultCategories();
+            const categoryOptions = cats.map(c => `<option value="${safeText(c.name)}" ${product && product.category === c.name ? 'selected' : ''}>${safeText(c.name)}</option>`).join('');
+            const oldImages = product ? (product.images && product.images.length ? product.images : [product.image]).filter(Boolean) : [];
+            sellerPage(product ? 'Edit Produk Kue' : 'Tambah Produk Kue Baru', `
+                <form id="sellerProductForm" class="bg-white p-4 rounded-2xl border border-orange-100 space-y-3">
+                    ${product ? `<input type="hidden" name="id" value="${safeText(product.id)}">` : ''}
+                    ${sellerField('Nama Produk', 'name', product?.name || '', 'text', 'Contoh: Birthday Cake')}
+                    <label class="block space-y-1"><span class="text-xs font-bold text-chocolate">Kategori</span><select name="category" class="w-full p-3 rounded-xl border border-orange-200 bg-white text-sm">${categoryOptions}<option value="Lainnya" ${product && product.category === 'Lainnya' ? 'selected' : ''}>Lainnya</option></select></label>
+                    ${sellerField('Harga (Rp)', 'price', product?.price ?? '', 'number', '150000')}
+                    ${sellerField('Stok', 'stock', product?.stock ?? '0', 'number', '0')}
+                    <label class="block space-y-1"><span class="text-xs font-bold text-chocolate">Deskripsi</span><textarea name="description" rows="4" class="w-full p-3 rounded-xl border border-orange-200 text-sm">${safeText(product?.description || '')}</textarea></label>
+                    <div><label class="block text-xs font-bold text-chocolate mb-1">Foto produk (bisa pilih beberapa)</label><input id="sellerProductImages" type="file" accept="image/*" multiple class="w-full text-xs"><p class="text-[10px] text-gray-500 mt-1">Foto baru akan ditambahkan ke foto lama saat edit.</p>
+                    ${oldImages.length ? `<div class="flex gap-2 overflow-x-auto mt-2">${oldImages.map(img => `<img src="${safeText(img)}" class="w-16 h-16 object-cover rounded-lg">`).join('')}</div>` : ''}</div>
+                    <button class="w-full py-3 rounded-xl bg-pink-btn text-white font-bold text-sm" type="submit">💾 Simpan Produk</button>
+                    <button class="w-full py-3 rounded-xl bg-white border border-orange-200 text-chocolate font-bold text-sm" type="button" onclick="showManageProducts()">Batal</button>
+                </form>`);
+            document.getElementById('sellerProductForm').addEventListener('submit', async (event) => {
+                event.preventDefault();
+                const form = event.currentTarget;
+                const fd = new FormData(form);
+                const name = String(fd.get('name') || '').trim();
+                const price = Number(fd.get('price') || 0);
+                if (!name || price <= 0) return showMessage('Data Produk', 'Nama produk dan harga lebih dari 0 wajib diisi.');
+                const input = document.getElementById('sellerProductImages');
+                const images = [];
+                try {
+                    for (const file of Array.from(input.files || [])) images.push(await readFileAsDataURL(file));
+                    const existing_images = oldImages;
+                    const result = await apiPost('save_product', {
+                        id: String(fd.get('id') || ''),
+                        name, category: String(fd.get('category') || 'Lainnya'),
+                        price, stock: Number(fd.get('stock') || 0),
+                        description: String(fd.get('description') || ''),
+                        existing_images, images_base64: images
+                    });
+                    showMessage('Produk', result.message || 'Produk berhasil disimpan.');
+                    await refreshSellerData();
+                    showManageProducts();
+                } catch (error) { showMessage('Gagal menyimpan produk', error.message); }
+            });
+        }
+
+        async function deleteSellerProduct(id) {
+            if (!confirm('Yakin ingin menghapus produk ini?')) return;
+            try {
+                const result = await apiPost('delete_product', { id });
+                showMessage('Produk', result.message || 'Produk dihapus.');
+                await refreshSellerData();
+                showManageProducts();
+            } catch (error) { showMessage('Gagal menghapus produk', error.message); }
+        }
+
+        // ================= KELOLA KATEGORI =================
+        async function showManageCategories() {
+            if (!requireSeller()) return;
+            await refreshSellerData();
+            window.currentViewFunc = showManageCategories;
+            const rows = categories.length ? categories.map(c => `<div class="bg-white p-3 rounded-xl border border-orange-100 flex items-center gap-3">
+                <span class="text-2xl">${safeText(c.icon || '🍰')}</span><div class="flex-1"><p class="font-bold text-sm text-chocolate">${safeText(c.name)}</p><p class="text-[10px] text-gray-500">${safeText(c.id)}</p></div>
+                <button onclick="editSellerCategory('${safeText(c.id)}')" class="px-3 py-2 bg-orange-50 rounded-lg text-xs font-bold text-chocolate">Edit</button>
+                <button onclick="deleteSellerCategory('${safeText(c.id)}')" class="px-3 py-2 bg-red-50 rounded-lg text-xs font-bold text-red-600">Hapus</button></div>`).join('') : '<p class="text-xs text-gray-500">Belum ada kategori.</p>';
+            sellerPage('Kelola Kategori Toko', `${sellerButton('➕ Tambah Kategori', "editSellerCategory('')", 'w-full')}<div class="space-y-2 mt-3">${rows}</div>`);
+        }
+
+        async function editSellerCategory(id) {
+            const item = categories.find(c => String(c.id) === String(id));
+            const name = prompt('Nama kategori:', item?.name || '');
+            if (name === null || !name.trim()) return;
+            const icon = prompt('Ikon kategori (emoji):', item?.icon || '🍰');
+            if (icon === null) return;
+            try {
+                const result = await apiPost('save_category', { id: item?.id || '', name: name.trim(), icon: icon.trim() || '🍰' });
+                showMessage('Kategori', result.message || 'Kategori disimpan.');
+                await refreshSellerData();
+                showManageCategories();
+            } catch (error) { showMessage('Gagal menyimpan kategori', error.message); }
+        }
+
+        async function deleteSellerCategory(id) {
+            if (!confirm('Yakin ingin menghapus kategori ini?')) return;
+            try {
+                const result = await apiPost('delete_category', { id });
+                showMessage('Kategori', result.message || 'Kategori dihapus.');
+                await refreshSellerData();
+                showManageCategories();
+            } catch (error) { showMessage('Gagal menghapus kategori', error.message); }
+        }
+
+        // ================= KELOLA PROMO & VOUCHER =================
+        async function showManagePromos() {
+            if (!requireSeller()) return;
+            await refreshSellerData();
+            window.currentViewFunc = showManagePromos;
+            const rows = promos.length ? promos.map(p => `<article class="bg-white p-3 rounded-xl border border-orange-100 flex gap-3">
+                ${p.image ? `<img src="${safeText(p.image)}" class="w-20 h-20 object-cover rounded-xl">` : '<div class="w-20 h-20 bg-orange-50 rounded-xl flex items-center justify-center text-2xl">🎁</div>'}
+                <div class="flex-1"><h3 class="font-bold text-sm text-chocolate">${safeText(p.title)}</h3><p class="text-xs text-pink-custom font-bold">Diskon ${Number(p.discount)||0}%</p><p class="text-[10px] text-gray-500">${safeText(p.startDate || '-')} s.d. ${safeText(p.endDate || '-')}</p><p class="text-[10px] text-gray-500">Produk: ${safeText(p.productId || 'ALL')}</p>
+                <div class="flex gap-2 mt-2"><button onclick="editSellerPromo('${safeText(p.id)}')" class="px-3 py-2 bg-orange-50 rounded-lg text-xs font-bold">Edit</button><button onclick="deleteSellerPromo('${safeText(p.id)}')" class="px-3 py-2 bg-red-50 rounded-lg text-xs font-bold text-red-600">Hapus</button></div></div></article>`).join('') : '<p class="bg-white p-4 rounded-xl text-xs text-gray-500">Belum ada promo.</p>';
+            sellerPage('Kelola Promo & Voucher', `${sellerButton('➕ Buat Promo Baru', "editSellerPromo('')", 'w-full')}<div class="space-y-3 mt-3">${rows}</div>`);
+        }
+
+        async function editSellerPromo(id) {
+            const item = promos.find(p => String(p.id) === String(id));
+            const title = prompt('Judul promo:', item?.title || '');
+            if (title === null || !title.trim()) return;
+            const discount = prompt('Diskon persen (contoh 15):', String(item?.discount || '10'));
+            if (discount === null || Number(discount) <= 0 || Number(discount) > 100) return showMessage('Promo', 'Diskon harus di antara 1 sampai 100.');
+            const start_date = prompt('Tanggal mulai (YYYY-MM-DD):', item?.startDate || new Date().toISOString().slice(0,10));
+            if (start_date === null) return;
+            const end_date = prompt('Tanggal berakhir (YYYY-MM-DD):', item?.endDate || start_date);
+            if (end_date === null) return;
+            const productChoice = prompt('ID produk untuk promo, atau ALL untuk semua produk:', item?.productId || 'ALL');
+            if (productChoice === null) return;
+            const imageFile = document.createElement('input');
+            imageFile.type = 'file'; imageFile.accept = 'image/*';
+            imageFile.click();
+            let image_base64 = '';
+            try {
+                image_base64 = await new Promise(resolve => {
+                    imageFile.onchange = async () => resolve(imageFile.files?.[0] ? await readFileAsDataURL(imageFile.files[0]) : '');
+                    // Do not block if the user cancels the optional file picker.
+                    setTimeout(() => resolve(''), 30000);
+                });
+            } catch (_) {}
+            try {
+                const result = await apiPost('save_promo', { id: item?.id || '', title: title.trim(), discount: Number(discount), start_date, end_date, product_id: productChoice.trim() || 'ALL', image_base64 });
+                showMessage('Promo', result.message || 'Promo disimpan.');
+                await refreshSellerData();
+                showManagePromos();
+            } catch (error) { showMessage('Gagal menyimpan promo', error.message); }
+        }
+
+        async function deleteSellerPromo(id) {
+            if (!confirm('Yakin ingin menghapus promo ini?')) return;
+            try {
+                const result = await apiPost('delete_promo', { id });
+                showMessage('Promo', result.message || 'Promo dihapus.');
+                await refreshSellerData();
+                showManagePromos();
+            } catch (error) { showMessage('Gagal menghapus promo', error.message); }
+        }
+
+        // ================= POS KASIR OFFLINE PRO =================
+        let posCart = [];
+        function showPOSKasir() {
+            if (!requireSeller()) return;
+            window.currentViewFunc = showPOSKasir;
+            const options = products.map(p => `<option value="${safeText(p.id)}">${safeText(p.name)} — ${formatRupiah(p.price)} (stok ${Number(p.stock)||0})</option>`).join('');
+            sellerPage('POS Kasir Offline Pro', `
+                <div class="bg-white p-4 rounded-2xl border border-orange-100 space-y-3">
+                    <label class="block space-y-1"><span class="text-xs font-bold text-chocolate">Pilih Produk</span><select id="posProduct" class="w-full p-3 border border-orange-200 rounded-xl text-sm">${options}</select></label>
+                    <div class="flex gap-2">${sellerButton('＋ Tambah Item', 'addPOSItem()', 'flex-1')}
+                        <button onclick="clearPOSCart()" class="px-4 py-3 rounded-xl border border-orange-200 text-xs font-bold text-chocolate">Kosongkan</button></div>
+                    <div id="posItems" class="space-y-2"></div>
+                    <div class="p-3 bg-orange-50 rounded-xl text-sm font-bold text-chocolate space-y-1"><p>Subtotal: <span id="posSubtotal">Rp0</span></p><p>PPN (11%): <span id="posTax">Rp0</span></p><p class="text-lg text-pink-custom">Total: <span id="posTotal">Rp0</span></p></div>
+                    <label class="block space-y-1"><span class="text-xs font-bold text-chocolate">Metode Pembayaran</span><select id="posPayment" class="w-full p-3 border border-orange-200 rounded-xl text-sm"><option>Tunai / Cash</option><option>QRIS Kasir</option><option>Kartu Debit/Kredit</option></select></label>
+                    <button onclick="submitPOSTransaction()" class="w-full py-3 rounded-xl bg-pink-btn text-white font-bold text-sm">💳 Proses Transaksi & Buat Struk</button>
+                </div>`);
+            renderPOSItems();
+        }
+
+        function addPOSItem() {
+            const id = document.getElementById('posProduct')?.value;
+            const p = products.find(x => String(x.id) === String(id));
+            if (!p) return showMessage('POS Kasir', 'Belum ada produk untuk dipilih.');
+            const existing = posCart.find(x => x.product.id === p.id);
+            if (existing) existing.quantity++;
+            else posCart.push({ product: p, quantity: 1 });
+            renderPOSItems();
+        }
+
+        function updatePOSQty(id, delta) {
+            const item = posCart.find(x => String(x.product.id) === String(id));
+            if (!item) return;
+            item.quantity += delta;
+            if (item.quantity <= 0) posCart = posCart.filter(x => x !== item);
+            renderPOSItems();
+        }
+
+        function clearPOSCart() { posCart = []; renderPOSItems(); }
+
+        function renderPOSItems() {
+            const el = document.getElementById('posItems');
+            if (!el) return;
+            el.innerHTML = posCart.length ? posCart.map(i => `<div class="flex items-center gap-2 p-3 bg-white border border-orange-100 rounded-xl">
+                <div class="flex-1"><p class="text-xs font-bold text-chocolate">${safeText(i.product.name)}</p><p class="text-[10px] text-gray-500">${i.quantity} × ${formatRupiah(i.product.price)}</p></div>
+                <button onclick="updatePOSQty('${safeText(i.product.id)}',-1)" class="px-3 py-2 bg-orange-50 rounded-lg">−</button><button onclick="updatePOSQty('${safeText(i.product.id)}',1)" class="px-3 py-2 bg-orange-50 rounded-lg">+</button>
+                </div>`).join('') : '<p class="text-xs text-gray-400 text-center p-4">Belum ada item dipilih.</p>';
+            const subtotal = posCart.reduce((sum, i) => sum + Number(i.product.price) * i.quantity, 0);
+            const tax = subtotal * 0.11;
+            document.getElementById('posSubtotal').textContent = formatRupiah(subtotal);
+            document.getElementById('posTax').textContent = formatRupiah(tax);
+            document.getElementById('posTotal').textContent = formatRupiah(subtotal + tax);
+        }
+
+        async function submitPOSTransaction() {
+            if (!posCart.length) return showMessage('POS Kasir', 'Keranjang kasir masih kosong.');
+            const subtotal = posCart.reduce((sum, i) => sum + Number(i.product.price) * i.quantity, 0);
+            const tax = subtotal * 0.11;
+            const total = Math.round(subtotal + tax);
+            const method = document.getElementById('posPayment')?.value || 'Tunai / Cash';
+            try {
+                const result = await apiPost('pos_transaction', {
+                    total, payment: method,
+                    items: posCart.map(i => ({ product_id: i.product.id, quantity: i.quantity, price: i.product.price }))
+                });
+                const receipt = `=========== AANG CAKESHOP ===========\nNota Kasir: #${result.order_id || '-'}\nMetode: ${method}\n-------------------------------------\n${posCart.map(i => `${i.product.name}\n  ${i.quantity} x ${formatRupiah(i.product.price)} = ${formatRupiah(i.product.price * i.quantity)}`).join('\n')}\n-------------------------------------\nSubtotal: ${formatRupiah(subtotal)}\nPPN (11%): ${formatRupiah(tax)}\nTOTAL: ${formatRupiah(total)}\n=====================================\nTerima kasih ❤`;
+                sellerPage('Struk Kasir', `<pre class="whitespace-pre-wrap bg-white p-4 border border-orange-100 rounded-xl text-xs">${safeText(receipt)}</pre>
+                    <div class="grid grid-cols-2 gap-2"><button onclick="window.print()" class="py-3 rounded-xl bg-pink-btn text-white font-bold text-xs">🖨 Cetak Struk</button><button onclick="downloadReceiptText(${JSON.stringify(receipt)})" class="py-3 rounded-xl border border-orange-200 text-chocolate font-bold text-xs">⬇ Unduh Struk TXT</button></div>
+                    <button onclick="showPOSKasir()" class="w-full py-3 rounded-xl border border-orange-200 text-xs font-bold">Transaksi Berikutnya</button>`);
+                posCart = [];
+            } catch (error) { showMessage('Transaksi Kasir Gagal', error.message); }
+        }
+
+        function downloadReceiptText(content) {
+            const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a'); a.href = url; a.download = 'Struk_Aang_Cakeshop.txt'; a.click();
+            URL.revokeObjectURL(url);
+        }
+
+        // ================= CHAT SELLER =================
+        async function showSellerChatList() {
+            if (!requireSeller()) return;
+            window.currentViewFunc = showSellerChatList;
+            try {
+                const result = await apiGet('get_chats', { sender_id: 'ALL_BUYERS' });
+                const chats = result.data || [];
+                const buyers = {};
+                chats.forEach(c => {
+                    const id = c.senderId === 'SELLER' ? c.targetBuyerId : c.senderId;
+                    if (!id) return;
+                    if (!buyers[id]) buyers[id] = { id, name: c.senderName || id, last: c.message || '', time: c.timestamp || '' };
+                    else if (String(c.timestamp) > String(buyers[id].time)) buyers[id] = { id, name: c.senderName || id, last: c.message || '', time: c.timestamp || '' };
+                });
+                const rows = Object.values(buyers).map(b => `<button onclick="showSellerChat('${safeText(b.id)}','${safeText(b.name)}')" class="w-full text-left bg-white border border-orange-100 rounded-xl p-3"><p class="font-bold text-sm text-chocolate">${safeText(b.name)}</p><p class="text-xs text-gray-500 mt-1">${safeText(b.last)}</p><p class="text-[10px] text-gray-400">${safeText(b.time)}</p></button>`).join('');
+                sellerPage('Kelola Pesan Pembeli', `<div class="space-y-2">${rows || '<p class="bg-white p-4 rounded-xl text-xs text-gray-500">Belum ada pesan pembeli.</p>'}<button onclick="showSellerChatList()" class="w-full py-3 border border-orange-200 rounded-xl text-xs font-bold">↻ Muat ulang pesan</button></div>`);
+            } catch (error) {
+                sellerPage('Kelola Pesan Pembeli', `<p class="p-3 bg-red-50 text-red-700 rounded-xl text-xs">${safeText(error.message)}</p>`);
+            }
+        }
+
+        async function showSellerChat(buyerId, buyerName) {
+            if (!requireSeller()) return;
+            window.currentViewFunc = () => showSellerChat(buyerId, buyerName);
+            try {
+                const result = await apiGet('get_chats', { sender_id: 'SELLER', target_buyer_id: buyerId });
+                const chats = result.data || [];
+                sellerPage(`Chat: ${safeText(buyerName)}`, `<div id="sellerChatLogs" class="bg-white border border-orange-100 rounded-xl p-3 h-72 overflow-y-auto space-y-2">
+                    ${chats.map(c => `<div class="p-2 rounded-xl ${c.senderId === 'SELLER' ? 'bg-pink-50 ml-8' : 'bg-orange-50 mr-8'}"><p class="text-[10px] font-bold text-gray-500">${safeText(c.senderName)} · ${safeText(c.timestamp)}</p><p class="text-xs text-chocolate">${safeText(c.message)}</p></div>`).join('') || '<p class="text-xs text-gray-400">Belum ada pesan.</p>'}
+                    </div><form id="sellerReplyForm" class="flex gap-2"><input id="sellerReplyText" class="flex-1 p-3 rounded-xl border border-orange-200 text-xs" placeholder="Tulis balasan..." required><button class="px-4 py-3 bg-pink-btn text-white rounded-xl text-xs font-bold">Kirim</button></form>
+                    <button onclick="showSellerChatList()" class="w-full py-3 border border-orange-200 rounded-xl text-xs font-bold">← Daftar Chat</button>`, `showSellerChatList()`);
+                document.getElementById('sellerReplyForm').addEventListener('submit', async e => {
+                    e.preventDefault();
+                    const message = document.getElementById('sellerReplyText').value.trim();
+                    if (!message) return;
+                    try {
+                        await apiPost('send_chat', { sender_id: 'SELLER', sender_name: sellerName || 'Seller', message, product_id: '-', target_buyer_id: buyerId });
+                        showSellerChat(buyerId, buyerName);
+                    } catch (error) { showMessage('Chat gagal dikirim', error.message); }
+                });
+            } catch (error) { showMessage('Gagal memuat chat', error.message); }
+        }
+
+        // ================= PENGATURAN PENGIRIMAN =================
+        async function showShippingSettings() {
+            if (!requireSeller()) return;
+            window.currentViewFunc = showShippingSettings;
+            sellerPage('Pengaturan Pengiriman Toko', '<p class="text-xs text-gray-500">Memuat pengaturan...</p>');
+            try {
+                const result = await apiGet('shipping_settings');
+                const couriers = result.data || [];
+                const options = ['JNE','J&T','SiCepat','AnterAja','POS Indonesia','GoSend','GrabExpress'];
+                const existing = couriers.length ? couriers.map(c => ({name:c.courier || c.name, active:String(c.status || '').toUpperCase() !== 'TIDAK'})) : options.map(name => ({name,active:true}));
+                const rows = existing.map((c,i) => `<label class="flex items-center gap-3 bg-white border border-orange-100 rounded-xl p-3"><input type="checkbox" id="shipping_${i}" ${c.active?'checked':''}><span class="text-sm font-bold text-chocolate">${safeText(c.name)}</span></label>`).join('');
+                document.getElementById('contentContainer').innerHTML = `<div class="space-y-4 pb-20"><button onclick="showAccount()" class="text-xs font-bold text-chocolate">← Kembali ke Seller Center</button><h2 class="text-lg font-extrabold text-chocolate">Pengaturan Pengiriman Toko</h2><div class="space-y-2">${rows}</div><button onclick="saveShippingSettingsUI(${JSON.stringify(existing.map(c=>c.name))})" class="w-full py-3 rounded-xl bg-pink-btn text-white font-bold text-sm">💾 Simpan Pengaturan</button></div>`;
+            } catch (error) { showMessage('Pengiriman', error.message); }
+        }
+
+        async function saveShippingSettingsUI(names) {
+            try {
+                const couriers = names.map((name, i) => ({ name, active: !!document.getElementById(`shipping_${i}`)?.checked }));
+                const result = await apiPost('save_shipping_settings', { couriers });
+                showMessage('Pengiriman', result.message || 'Pengaturan pengiriman disimpan.');
+                showShippingSettings();
+            } catch (error) { showMessage('Gagal menyimpan pengiriman', error.message); }
+        }
+
 
         function getDefaultCategories() {
             return [
