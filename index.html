@@ -659,7 +659,7 @@
                                     <span class="text-pink-custom font-bold">${o.status || 'Diproses'}</span>
                                 </div>
                                 <p class="text-[11px] text-gray-600">Total: ${formatRupiah(o.total || o.grand_total || 0)}</p>
-                                <p class="text-[11px] text-gray-600">Kurir: ${o.courier \vert{}\vert{} '-'} \vert{} Resi:${o.awb || o.resi || 'Menunggu Resi'}</p>
+                                <p class="text-[11px] text-gray-600">Kurir: ${o.courier || '-'} | Resi:${o.awb || o.resi || 'Menunggu Resi'}</p>
                             </div>
                         `).join('') : '<p class="text-xs text-gray-400">Tidak ada riwayat pesanan.</p>'}
                     </div>
