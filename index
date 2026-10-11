@@ -1,0 +1,781 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Aang Cakeshop — Web App</title>
+    <!-- Google Fonts & Tailwind CSS for styling -->
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap');
+        body { font-family: 'Poppins', sans-serif; background-color: #FDFBF7; color: #4A3B32; }
+        .bg-cream { background-color: #FDFBF7; }
+        .bg-chocolate { background-color: #4A3B32; }
+        .text-chocolate { color: #4A3B32; }
+        .bg-pink-btn { background-color: #D9777F; }
+        .bg-pink-btn:hover { background-color: #C5646C; }
+        .text-pink-custom { color: #D9777F; }
+    </style>
+</head>
+<body class="bg-cream min-h-screen flex flex-col pb-20">
+
+    <!-- TOP HEADER / NAVBAR -->
+    <header id="topHeader" class="bg-[#FDFBF7] border-b border-orange-100 sticky top-0 z-50 px-4 py-3 flex items-center justify-between shadow-xs">
+        <div class="flex items-center space-x-2 cursor-pointer" onclick="showHome()">
+            <span class="text-2xl">🍰</span>
+            <div>
+                <h1 class="font-bold text-lg text-chocolate leading-tight">Aang Cakeshop</h1>
+                <p class="text-[10px] text-gray-500">Setiap Kue, Ada Cerita Manisnya ❤</p>
+            </div>
+        </div>
+        <div class="flex items-center space-x-3">
+            <button onclick="checkSellerChatAccess()" class="text-xl p-1 relative" title="Chat">💬</button>
+            <button onclick="showNotifications()" class="text-xl p-1" title="Notifikasi">🔔</button>
+            <button onclick="showCart()" class="text-xl p-1 relative" title="Keranjang">🛒</button>
+        </div>
+    </header>
+
+    <!-- MAIN DYNAMIC CONTENT CONTAINER -->
+    <main id="contentContainer" class="flex-1 max-w-2xl w-full mx-auto p-4">
+        <!-- Konten akan dimuat secara dinamis oleh JavaScript -->
+    </main>
+
+    <!-- BOTTOM NAVIGATION BAR (Sama persis dengan Android) -->
+    <nav class="fixed bottom-0 left-0 right-0 max-w-2xl mx-auto bg-white border-t border-gray-200 h-16 flex justify-around items-center z-50 shadow-lg px-2">
+        <button onclick="setActiveNav('home'); showHome()" class="flex flex-col items-center flex-1 text-pink-custom" id="navHome">
+            <span class="text-xl">⌂</span>
+            <span class="text-[10px] font-bold">Beranda</span>
+        </button>
+        <button onclick="setActiveNav('category'); showCategory()" class="flex flex-col items-center flex-1 text-gray-400" id="navCategory">
+            <span class="text-xl">▦</span>
+            <span class="text-[10px]">Kategori</span>
+        </button>
+        <button onclick="setActiveNav('cart'); showCart()" class="flex flex-col items-center flex-1 text-gray-400" id="navCart">
+            <span class="text-xl">🛒</span>
+            <span class="text-[10px]">Keranjang</span>
+        </button>
+        <button onclick="setActiveNav('promo'); showPromo()" class="flex flex-col items-center flex-1 text-gray-400" id="navPromo">
+            <span class="text-xl">%</span>
+            <span class="text-[10px]">Promo</span>
+        </button>
+        <button onclick="setActiveNav('account'); showAccount()" class="flex flex-col items-center flex-1 text-gray-400" id="navAccount">
+            <span class="text-xl">♙</span>
+            <span class="text-[10px]">Akun</span>
+        </button>
+    </nav>
+
+    <!-- JAVASCRIPT LOGIC & API INTEGRATION -->
+    <script>
+        // =====================================================================
+        // KONFIGURASI URL WEB APP GOOGLE APPS SCRIPT ANDA (TETAP SAMA)
+        // =====================================================================
+        const BASE_URL = "https://script.google.com/macros/s/AKfycby39m3UjNBIhLTyT5UAatDmVEx9tOsPNqh_K9IT6qoF9xo_nXehoKjLjYXzVMKFjy2L_A/exec";
+
+        let products = [];
+        let categories = [];
+        let promos = [];
+        let favorites = JSON.parse(localStorage.getItem('favs') || '[]');
+        let cart = JSON.parse(localStorage.getItem('cart') || '[]');
+        let isSellerLoggedIn = localStorage.getItem('is_seller') === 'true';
+        let sellerName = localStorage.getItem('seller_name') || 'Penjual Utama';
+        let isUserLoggedIn = localStorage.getItem('is_user') === 'true';
+        let currentUserId = localStorage.getItem('user_id') || ('GUEST_' + Date.now());
+        let currentUserName = localStorage.getItem('user_name') || 'Pembeli Anonym';
+        let currentUserEmail = localStorage.getItem('user_email') || '';
+
+        // Format Rupiah
+        function formatRupiah(amount) {
+            return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(amount).replace(',00', '');
+        }
+
+        function showMessage(title, message) {
+            alert(`${title}: ${message}`);
+        }
+
+        // Fetch All Data on Startup
+        async function loadAllData() {
+            try {
+                const [resProd, resCat, resPromo] = await Promise.all([
+                    fetch(`${BASE_URL}?action=products`).then(r => r.json()),
+                    fetch(`${BASE_URL}?action=categories`).then(r => r.json()),
+                    fetch(`${BASE_URL}?action=promos`).then(r => r.json())
+                ]);
+                if (resProd.success) products = resProd.data;
+                if (resCat.success) categories = resCat.data;
+                if (resPromo.success) promos = resPromo.data;
+                
+                // Refresh current view if needed
+                if (window.currentViewFunc) window.currentViewFunc();
+            } catch (e) {
+                console.error("Gagal memuat data dari server:", e);
+            }
+        }
+
+        function setActiveNav(nav) {
+            ['Home', 'Category', 'Cart', 'Promo', 'Account'].forEach(n => {
+                const btn = document.getElementById('nav' + n);
+                if (btn) {
+                    btn.classList.remove('text-pink-custom', 'font-bold');
+                    btn.classList.add('text-gray-400');
+                }
+            });
+            const active = document.getElementById('nav' + nav.charAt(0).toUpperCase() + nav.slice(1));
+            if (active) {
+                active.classList.remove('text-gray-400');
+                active.classList.add('text-pink-custom', 'font-bold');
+            }
+        }
+
+        // ================= 1. BERANDA =================
+        function showHome() {
+            window.currentViewFunc = showHome;
+            setActiveNav('home');
+            const container = document.getElementById('contentContainer');
+            
+            let html = `
+                <div class="space-y-4">
+                    <!-- Search Bar -->
+                    <div>
+                        <input type="text" id="searchInput" placeholder="Cari kue favorit kamu di sini..." oninput="filterHomeProducts(this.value)" 
+                            class="w-full px-4 py-3 rounded-xl border border-orange-200 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-[#D9777F]">
+                    </div>
+
+                    <!-- Kategori Horizontal -->
+                    <div>
+                        <h2 class="font-bold text-chocolate text-base mb-2">Kategori</h2>
+                        <div class="flex overflow-x-auto space-x-3 pb-2 scrollbar-none">
+                            ${(categories.length ? categories : getDefaultCategories()).map(c => `
+                                <div onclick="showProductList('${c.name}')" class="flex-shrink-0 w-20 h-24 bg-orange-50 border border-orange-100 rounded-xl flex flex-col items-center justify-center p-2 cursor-pointer shadow-xs">
+                                    <span class="text-2xl">${c.icon}</span>
+                                    <span class="text-[11px] font-bold text-chocolate text-center mt-1 truncate w-full">${c.name}</span>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+
+                    <!-- Promo Banner Card -->
+                    <div onclick="showPromo()" class="bg-gradient-to-r from-pink-100 to-orange-100 border border-pink-200 rounded-2xl p-4 cursor-pointer shadow-sm">
+                        <h3 class="font-bold text-chocolate text-sm">🎉 Promo Manis Diskon Spesial!</h3>
+                        <p class="text-xs text-gray-600 mt-1">Untuk Hari-Hari Spesial Kamu ❤ Lihat Promo →</p>
+                    </div>
+
+                    <!-- Produk Pilihan Grid -->
+                    <div>
+                        <h2 class="font-bold text-chocolate text-base mb-2">Produk Pilihan</h2>
+                        <div id="productGrid" class="grid grid-cols-2 gap-3">
+                            ${renderProductCards(products)}
+                        </div>
+                    </div>
+                </div>
+            `;
+            container.innerHTML = html;
+        }
+
+        function filterHomeProducts(keyword) {
+            const grid = document.getElementById('productGrid');
+            const filtered = products.filter(p => p.name.toLowerCase().includes(keyword.toLowerCase()) || p.description.toLowerCase().includes(keyword.toLowerCase()));
+            grid.innerHTML = renderProductCards(filtered);
+        }
+
+        function renderProductCards(prods) {
+            if (!prods.length) return `<p class="col-span-2 text-center text-gray-400 py-6">Tidak ada produk ditemukan.</p>`;
+            return prods.map(p => {
+                const isFav = favorites.includes(p.id);
+                const displayImg = p.image || (p.images && p.images[0]) || '';
+                return `
+                    <div class="bg-white border border-orange-100 rounded-2xl p-2.5 flex flex-col shadow-xs">
+                        <div class="relative h-36 rounded-xl overflow-hidden bg-gray-100 cursor-pointer" onclick="showProductDetail('${p.id}')">
+                            <img src="${displayImg}" alt="${p.name}" class="w-full h-full object-cover">
+                            <button onclick="event.stopPropagation(); toggleFavorite('${p.id}')" class="absolute top-2 right-2 w-8 h-8 bg-white/90 rounded-full flex items-center justify-center text-pink-custom shadow-xs text-lg">
+                                ${isFav ? '♥' : '♡'}
+                            </button>
+                        </div>
+                        <h3 class="font-bold text-chocolate text-xs mt-2 line-clamp-2 cursor-pointer" onclick="showProductDetail('${p.id}')">${p.name}</h3>
+                        <p class="text-[10px] text-gray-400 mt-0.5">⭐ ${p.rating ? p.rating.toFixed(1) : '0.0'} • ${p.sold_count || 0} terjual</p>
+                        <p class="font-bold text-pink-custom text-xs mt-1">${formatRupiah(p.price)}</p>
+                        <button onclick="addToCart('${p.id}')" ${p.stock <= 0 ? 'disabled' : ''} class="mt-2 w-full py-1.5 rounded-xl text-xs font-bold text-white bg-pink-btn ${p.stock <= 0 ? 'opacity-50 cursor-not-allowed' : ''}">
+                            ${p.stock > 0 ? '+ Tambah' : 'Stok Habis'}
+                        </button>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // ================= 2. DETAIL PRODUK & ULASAN =================
+        async function showProductDetail(productId) {
+            window.currentViewFunc = () => showProductDetail(productId);
+            const p = products.find(item => item.id === productId);
+            if (!p) return showHome();
+            const container = document.getElementById('contentContainer');
+
+            const activePromo = promos.find(pr => pr.productId === p.id || pr.productId === 'ALL');
+            const finalPrice = activePromo ? p.price * (1 - activePromo.discount / 100) : p.price;
+            const imagesList = p.images && p.images.length ? p.images : [p.image];
+
+            container.innerHTML = `
+                <div class="space-y-4 pb-12">
+                    <button onclick="showHome()" class="text-sm font-bold text-chocolate flex items-center">← Kembali</button>
+                    
+                    <!-- Gallery Horizontal -->
+                    <div class="flex overflow-x-auto space-x-2 pb-2 scrollbar-none">
+                        ${imagesList.map(img => `<img src="${img}" class="w-64 h-52 object-cover rounded-2xl flex-shrink-0 bg-gray-100 border border-orange-100">`).join('')}
+                    </div>
+
+                    <h1 class="text-xl font-bold text-chocolate">${p.name}</h1>
+                    <div class="flex items-baseline space-x-2">
+                        <span class="text-2xl font-bold text-pink-custom">${formatRupiah(finalPrice)}</span>
+                        ${activePromo ? `<span class="text-xs bg-pink-100 text-pink-custom px-2 py-0.5 rounded-full font-bold">Diskon ${activePromo.discount}%</span>` : ''}
+                    </div>
+                    <p class="text-xs text-gray-500">⭐ ${p.rating ? p.rating.toFixed(1) : '0.0'} / 5.0 • ${p.sold_count || 0} Terjual • Stok: ${p.stock}</p>
+
+                    <button onclick="showChatWindow('${p.id}')" class="w-full py-2.5 bg-white border border-orange-200 text-chocolate font-bold text-xs rounded-xl shadow-xs">
+                        💬 Tanya Seller Mengenai Produk Ini
+                    </button>
+
+                    <div>
+                        <h3 class="font-bold text-chocolate text-sm mb-1">Deskripsi Kue</h3>
+                        <p class="text-xs text-gray-600 bg-white p-3 rounded-xl border border-orange-100 leading-relaxed">${p.description || 'Tidak ada deskripsi produk.'}</p>
+                    </div>
+
+                    <!-- Ulasan & Rating -->
+                    <div>
+                        <h3 class="font-bold text-chocolate text-sm mb-2">Ulasan Pembeli</h3>
+                        <div id="reviewsList" class="space-y-2">
+                            <p class="text-xs text-gray-400">Memuat ulasan...</p>
+                        </div>
+                        <button onclick="openReviewDialog('${p.id}')" class="mt-3 w-full py-2 bg-pink-btn text-white text-xs font-bold rounded-xl">
+                            ✍ Beri Ulasan & Rating Kue Ini
+                        </button>
+                    </div>
+
+                    <!-- Quantity & Add to Cart -->
+                    <div class="flex items-center space-x-3 pt-4 border-t border-orange-100">
+                        <div class="flex items-center border border-orange-200 rounded-xl bg-white">
+                            <button onclick="adjustQty(-1)" class="w-10 h-10 font-bold text-lg text-chocolate">−</button>
+                            <span id="qtyVal" class="w-10 text-center font-bold text-sm">1</span>
+                            <button onclick="adjustQty(1)" class="w-10 h-10 font-bold text-lg text-chocolate">+</button>
+                        </div>
+                        <button onclick="addToCartQty('${p.id}')" class="flex-1 py-3 bg-pink-btn text-white font-bold text-sm rounded-xl shadow-md">
+                            🛒 Tambahkan Ke Keranjang
+                        </button>
+                    </div>
+                </div>
+            `;
+            loadReviews(p.id);
+        }
+
+        let currentQty = 1;
+        function adjustQty(val) {
+            currentQty = Math.max(1, currentQty + val);
+            const el = document.getElementById('qtyVal');
+            if (el) el.innerText = currentQty;
+        }
+
+        async function loadReviews(prodId) {
+            const listEl = document.getElementById('reviewsList');
+            if (!listEl) return;
+            try {
+                const res = await fetch(`${BASE_URL}?action=get_reviews&product_id=${prodId}`).then(r => r.json());
+                if (res.success && res.data.length > 0) {
+                    listEl.innerHTML = res.data.map(r => `
+                        <div class="bg-white p-3 rounded-xl border border-orange-100 space-y-1">
+                            <div class="flex justify-between items-center text-xs">
+                                <span class="font-bold text-chocolate">👤 ${r.userName} • ⭐ ${r.rating}/5</span>
+                                <span class="text-[10px] text-gray-400">${r.timestamp}</span>
+                            </div>
+                            <p class="text-xs text-gray-700">${r.comment}</p>
+                            ${r.imageUrl ? `<img src="${r.imageUrl}" class="w-20 h-20 object-cover rounded-lg mt-1">` : ''}
+                        </div>
+                    `).join('');
+                } else {
+                    listEl.innerHTML = `<p class="text-xs text-gray-400 italic">Belum ada ulasan untuk kue ini.</p>`;
+                }
+            } catch (e) {
+                listEl.innerHTML = `<p class="text-xs text-red-400">Gagal memuat ulasan.</p>`;
+            }
+        }
+
+        function openReviewDialog(prodId) {
+            const rating = prompt("Beri Rating (1 - 5):", "5");
+            if (!rating) return;
+            const comment = prompt("Tulis ulasan Anda:", "Kuenya sangat enak dan lembut!");
+            if (!comment) return;
+
+            fetch(BASE_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'text/plain' },
+                body: JSON.stringify({ action: 'add_review', product_id: prodId, user_name: currentUserName, rating: parseInt(rating), comment: comment })
+            }).then(r => r.json()).then(res => {
+                showMessage('Sukses', res.message || 'Ulasan terkirim!');
+                loadReviews(prodId);
+            });
+        }
+
+        // ================= 3. KATEGORI & PRODUK LIST =================
+        function showCategory() {
+            window.currentViewFunc = showCategory;
+            setActiveNav('category');
+            const container = document.getElementById('contentContainer');
+            const catList = categories.length ? categories : getDefaultCategories();
+
+            container.innerHTML = `
+                <div class="space-y-3">
+                    <h2 class="font-bold text-chocolate text-lg mb-2">Kategori Kue</h2>
+                    ${catList.map(c => `
+                        <div onclick="showProductList('${c.name}')" class="bg-white p-4 rounded-2xl border border-orange-100 flex items-center space-x-4 cursor-pointer shadow-xs">
+                            <span class="text-3xl">${c.icon}</span>
+                            <span class="font-bold text-chocolate text-base">${c.name}</span>
+                        </div>
+                    `).join('')}
+                </div>
+            `;
+        }
+
+        function showProductList(catName) {
+            window.currentViewFunc = () => showProductList(catName);
+            const container = document.getElementById('contentContainer');
+            const filtered = products.filter(p => p.category.toLowerCase() === catName.toLowerCase());
+
+            container.innerHTML = `
+                <div class="space-y-3">
+                    <button onclick="showCategory()" class="text-sm font-bold text-chocolate">← Kembali ke Kategori</button>
+                    <h2 class="font-bold text-chocolate text-lg">Kategori: ${catName}</h2>
+                    <div class="grid grid-cols-2 gap-3">
+                        ${renderProductCards(filtered)}
+                    </div>
+                </div>
+            `;
+        }
+
+        // ================= 4. KERANJANG & CHECKOUT =================
+        function addToCart(prodId) {
+            const p = products.find(item => item.id === prodId);
+            if (!p || p.stock <= 0) return showMessage('Stok', 'Stok habis.');
+            const exist = cart.find(item => item.product.id === prodId);
+            if (exist) {
+                exist.quantity = Math.min(exist.quantity + 1, p.stock);
+            } else {
+                cart.push({ product: p, quantity: 1 });
+            }
+            saveCartAndNotify(p.name);
+        }
+
+        function addToCartQty(prodId) {
+            const p = products.find(item => item.id === prodId);
+            if (!p) return;
+            const exist = cart.find(item => item.product.id === prodId);
+            if (exist) {
+                exist.quantity = Math.min(exist.quantity + currentQty, p.stock);
+            } else {
+                cart.push({ product: p, quantity: currentQty });
+            }
+            currentQty = 1;
+            saveCartAndNotify(p.name);
+        }
+
+        function saveCartAndNotify(name) {
+            localStorage.setItem('cart', JSON.stringify(cart));
+            showMessage('Keranjang', `${name} berhasil ditambahkan ke keranjang!`);
+        }
+
+        function showCart() {
+            window.currentViewFunc = showCart;
+            setActiveNav('cart');
+            const container = document.getElementById('contentContainer');
+
+            if (!cart.length) {
+                container.innerHTML = `
+                    <div class="text-center py-20 space-y-3">
+                        <span class="text-5xl">🛒</span>
+                        <p class="text-sm text-gray-500 font-bold">Keranjang belanja kamu masih kosong.</p>
+                        <button onclick="showHome()" class="px-6 py-2 bg-pink-btn text-white text-xs font-bold rounded-xl">Mulai Belanja</button>
+                    </div>
+                `;
+                return;
+            }
+
+            const subtotal = cart.reduce((sum, item) => sum + (item.product.price * item.quantity), 0);
+
+            container.innerHTML = `
+                <div class="space-y-4 pb-16">
+                    <h2 class="font-bold text-chocolate text-lg">Keranjang Saya</h2>
+                    <div class="space-y-3">
+                        ${cart.map((item, idx) => `
+                            <div class="bg-white p-3 rounded-2xl border border-orange-100 flex items-center space-x-3 shadow-xs">
+                                <img src="${item.product.image || ''}" class="w-16 h-16 object-cover rounded-xl bg-gray-100">
+                                <div class="flex-1">
+                                    <h4 class="font-bold text-chocolate text-xs line-clamp-1">${item.product.name}</h4>
+                                    <p class="text-xs text-pink-custom font-bold mt-1">${formatRupiah(item.product.price)}</p>
+                                    <div class="flex items-center space-x-2 mt-2">
+                                        <button onclick="updateCartQty(${idx}, -1)" class="w-6 h-6 bg-orange-100 rounded-md font-bold text-chocolate text-xs">">−</button>
+                                        <span class="text-xs font-bold">${item.quantity}</span>
+                                        <button onclick="updateCartQty(${idx}, 1)" class="w-6 h-6 bg-orange-100 rounded-md font-bold text-chocolate text-xs">+</button>
+                                    </div>
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+
+                    <div class="bg-white p-4 rounded-2xl border border-orange-100 space-y-2 shadow-xs">
+                        <div class="flex justify-between text-sm font-bold text-chocolate">
+                            <span>Subtotal:</span>
+                            <span>${formatRupiah(subtotal)}</span>
+                        </div>
+                    </div>
+
+                    <button onclick="showCheckout()" class="w-full py-3 bg-pink-btn text-white font-bold text-sm rounded-xl shadow-md">
+                        Proses Checkout Pro →
+                    </button>
+                </div>
+            `;
+        }
+
+        function updateCartQty(idx, val) {
+            cart[idx].quantity += val;
+            if (cart[idx].quantity <= 0) cart.splice(idx, 1);
+            localStorage.setItem('cart', JSON.stringify(cart));
+            showCart();
+        }
+
+        function showCheckout() {
+            window.currentViewFunc = showCheckout;
+            const container = document.getElementById('contentContainer');
+            const savedName = localStorage.getItem('cust_name') || currentUserName;
+            const savedPhone = localStorage.getItem('cust_phone') || '';
+            const savedAddress = localStorage.getItem('cust_address') || '';
+
+            const subtotal = cart.reduce((sum, item) => sum + (item.product.price * item.quantity), 0);
+            const ongkir = 15000;
+            const pajak = subtotal * 0.11;
+            const grandTotal = subtotal + ongkir + pajak;
+
+            container.innerHTML = `
+                <div class="space-y-4 pb-16">
+                    <button onclick="showCart()" class="text-sm font-bold text-chocolate">← Kembali ke Keranjang</button>
+                    <h2 class="font-bold text-chocolate text-lg">Checkout Pesanan</h2>
+
+                    <div class="bg-white p-4 rounded-2xl border border-orange-100 space-y-3">
+                        <h3 class="font-bold text-chocolate text-xs">Informasi Pengiriman</h3>
+                        <input type="text" id="chkName" placeholder="Nama Penerima" value="${savedName}" class="w-full p-2.5 text-xs border rounded-xl">
+                        <input type="tel" id="chkPhone" placeholder="Nomor HP (Untuk Lacak Pesanan)" value="${savedPhone}" class="w-full p-2.5 text-xs border rounded-xl">
+                        <textarea id="chkAddress" placeholder="Alamat Pengiriman Lengkap" class="w-full p-2.5 text-xs border rounded-xl">${savedAddress}</textarea>
+                    </div>
+
+                    <div class="bg-white p-4 rounded-2xl border border-orange-100 space-y-3">
+                        <h3 class="font-bold text-chocolate text-xs">Kurir & Pembayaran</h3>
+                        <select id="chkCourier" class="w-full p-2.5 text-xs border rounded-xl">
+                            <option>JNE Express</option><option>J&T Express</option><option>SiCepat Express</option><option>GrabExpress</option><option>GoSend</option>
+                        </select>
+                        <select id="chkPayment" onchange="togglePaymentProof(this.value)" class="w-full p-2.5 text-xs border rounded-xl">
+                            <option>QRIS</option><option>BCA</option><option>COD / Bayar di Tempat</option>
+                        </select>
+                        <div id="paymentInstructions" class="text-xs text-gray-600 bg-orange-50 p-3 rounded-xl">
+                            Scan QRIS di atas untuk melakukan pembayaran.
+                        </div>
+                        <input type="file" id="proofFile" class="w-full text-xs">
+                    </div>
+
+                    <div class="bg-white p-4 rounded-2xl border border-orange-100 space-y-1 text-xs">
+                        <p>Subtotal: ${formatRupiah(subtotal)}</p>
+                        <p>Ongkir: ${formatRupiah(ongkir)}</p>
+                        <p>Pajak 11%: ${formatRupiah(pajak)}</p>
+                        <hr class="my-1">
+                        <p class="font-bold text-pink-custom text-sm">Grand Total: ${formatRupiah(grandTotal)}</p>
+                    </div>
+
+                    <button onclick="submitOrder(${grandTotal})" class="w-full py-3 bg-pink-btn text-white font-bold text-sm rounded-xl shadow-md">
+                        Konfirmasi & Bayar Sekarang
+                    </button>
+                </div>
+            `;
+        }
+
+        function togglePaymentProof(method) {
+            const el = document.getElementById('paymentInstructions');
+            if (method === 'QRIS') el.innerText = "Scan QRIS untuk pembayaran.";
+            else if (method === 'BCA') el.innerText = "Transfer ke BCA: 1109876333 a.n. Aang Cakeshop.";
+            else el.innerText = "Bayar tunai saat kurir tiba (COD).";
+        }
+
+        async function submitOrder(grandTotal) {
+            const name = document.getElementById('chkName').value;
+            const phone = document.getElementById('chkPhone').value;
+            const address = document.getElementById('chkAddress').value;
+            const courier = document.getElementById('chkCourier').value;
+            const payment = document.getElementById('chkPayment').value;
+            const fileInput = document.getElementById('proofFile');
+
+            if (!name || !phone || !address) return showMessage('Gagal', 'Nama, No HP, dan Alamat wajib diisi!');
+
+            localStorage.setItem('cust_name', name);
+            localStorage.setItem('cust_phone', phone);
+            localStorage.setItem('cust_address', address);
+
+            let base64Proof = "";
+            if (fileInput.files[0]) {
+                base64Proof = await toBase64(fileInput.files[0]);
+            }
+
+            const orderPayload = {
+                action: 'create_order',
+                name, phone, address, benchmark: '-', payment, courier, total: grandTotal,
+                payment_proof_base64: base64Proof,
+                items: cart.map(i => ({ product_id: i.product.id, quantity: i.quantity, price: i.product.price }))
+            };
+
+            fetch(BASE_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'text/plain' },
+                body: JSON.stringify(orderPayload)
+            }).then(r => r.json()).then(res => {
+                if (res.success) {
+                    cart = [];
+                    localStorage.removeItem('cart');
+                    showMessage('Sukses', 'Pesanan Anda berhasil dikirim ke dapur toko!');
+                    showOrdersHistory(phone);
+                } else {
+                    showMessage('Gagal', res.message || 'Gagal membuat pesanan.');
+                }
+            });
+        }
+
+        function toBase64(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.readAsDataURL(file);
+                reader.onload = () => resolve(reader.result);
+                reader.onerror = error => reject(error);
+            });
+        }
+
+        // ================= 5. PROMO & AKUN / SELLER =================
+        function showPromo() {
+            window.currentViewFunc = showPromo;
+            setActiveNav('promo');
+            const container = document.getElementById('contentContainer');
+
+            container.innerHTML = `
+                <div class="space-y-4">
+                    <h2 class="font-bold text-chocolate text-lg">Promo & Voucher Spesial</h2>
+                    ${promos.length ? promos.map(p => `
+                        <div class="bg-gradient-to-r from-pink-50 to-orange-50 border border-pink-200 rounded-2xl p-4 space-y-2">
+                            ${p.image ? `<img src="${p.image}" class="w-full h-36 object-cover rounded-xl">` : ''}
+                            <h3 class="font-bold text-chocolate text-sm">🎁 ${p.title}</h3>
+                            <p class="text-xs text-pink-custom font-bold">Diskon ${p.discount}%</p>
+                            <p class="text-[10px] text-gray-500">Berlaku: ${p.startDate} s.d ${p.endDate}</p>
+                        </div>
+                    `).join('') : '<p class="text-xs text-gray-400">Belum ada promo aktif.</p>'}
+                </div>
+            `;
+        }
+
+        function showAccount() {
+            window.currentViewFunc = showAccount;
+            setActiveNav('account');
+            const container = document.getElementById('contentContainer');
+
+            if (isSellerLoggedIn) {
+                container.innerHTML = `
+                    <div class="space-y-3 pb-16">
+                        <div class="bg-orange-100 p-4 rounded-2xl border border-orange-200">
+                            <h3 class="font-bold text-chocolate text-sm">🏬 Seller Center (${sellerName})</h3>
+                            <p class="text-xs text-gray-600 mt-1">Kelola produk, pesanan, kategori, & promo toko Anda.</p>
+                        </div>
+                        <button onclick="showManageOrders()" class="w-full p-3 bg-white border rounded-xl font-bold text-xs text-chocolate shadow-xs text-left">📦 Kelola Pesanan Masuk & Label</button>
+                        <button onclick="showPOSKasir()" class="w-full p-3 bg-white border rounded-xl font-bold text-xs text-chocolate shadow-xs text-left">🖥 POS Kasir Offline Pro</button>
+                        <button onclick="showManageProducts()" class="w-full p-3 bg-white border rounded-xl font-bold text-xs text-chocolate shadow-xs text-left">🍰 Kelola & Tambah Produk</button>
+                        <button onclick="showManageCategories()" class="w-full p-3 bg-white border rounded-xl font-bold text-xs text-chocolate shadow-xs text-left">🏷️ Kelola Kategori Toko</button>
+                        <button onclick="showManagePromos()" class="w-full p-3 bg-white border rounded-xl font-bold text-xs text-chocolate shadow-xs text-left">🎁 Kelola Promo & Voucher</button>
+                        <button onclick="logoutSeller()" class="w-full p-3 bg-red-50 text-red-600 border border-red-200 rounded-xl font-bold text-xs text-left">🚪 Keluar Mode Seller</button>
+                    </div>
+                `;
+            } else {
+                container.innerHTML = `
+                    <div class="space-y-3 pb-16">
+                        <div class="bg-white p-4 rounded-2xl border border-orange-100 flex items-center space-x-3">
+                            <span class="text-3xl">👤</span>
+                            <div>
+                                <h3 class="font-bold text-chocolate text-sm">${isUserLoggedIn ? currentUserName : 'Tamu / Pembeli Anonym'}</h3>
+                                <p class="text-[10px] text-gray-500">${currentUserEmail || 'Belum login Google'}</p>
+                            </div>
+                        </div>
+                        <button onclick="promptSearchOrders()" class="w-full p-3 bg-white border rounded-xl font-bold text-xs text-chocolate shadow-xs text-left">📦 Lacak Pesanan Saya</button>
+                        <button onclick="showFavorites()" class="w-full p-3 bg-white border rounded-xl font-bold text-xs text-chocolate shadow-xs text-left">❤️ Produk Favorit Saya</button>
+                        <button onclick="showSellerLoginModal()" class="w-full p-3 bg-white border rounded-xl font-bold text-xs text-chocolate shadow-xs text-left">🔐 Login Khusus Penjual (Seller)</button>
+                    </div>
+                `;
+            }
+        }
+
+        // ================= 6. FITUR TAMBAHAN (SELLER & LACAK) =================
+        function showSellerLoginModal() {
+            const email = prompt("Email Seller:", "seller@aangcakeshop.com");
+            if (!email) return;
+            const password = prompt("Password:", "admin123");
+            if (!password) return;
+
+            fetch(BASE_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'text/plain' },
+                body: JSON.stringify({ action: 'seller_login', email, password })
+            }).then(r => r.json()).then(res => {
+                if (res.success) {
+                    isSellerLoggedIn = true;
+                    sellerName = res.user.name;
+                    localStorage.setItem('is_seller', 'true');
+                    localStorage.setItem('seller_name', sellerName);
+                    showMessage('Berhasil', 'Selamat datang Seller!');
+                    showAccount();
+                } else {
+                    showMessage('Gagal', res.message || 'Login gagal.');
+                }
+            });
+        }
+
+        function logoutSeller() {
+            isSellerLoggedIn = false;
+            localStorage.removeItem('is_seller');
+            showAccount();
+        }
+
+        function promptSearchOrders() {
+            const phone = prompt("Masukkan Nomor HP / WhatsApp pemesan:");
+            if (phone) showOrdersHistory(phone);
+        }
+
+        async function showOrdersHistory(phone) {
+            window.currentViewFunc = () => showOrdersHistory(phone);
+            const container = document.getElementById('contentContainer');
+            try {
+                const res = await fetch(`${BASE_URL}?action=orders&phone=${phone}`).then(r => r.json());
+                const orders = res.data || [];
+                container.innerHTML = `
+                    <div class="space-y-4 pb-16">
+                        <button onclick="showAccount()" class="text-sm font-bold text-chocolate">← Kembali</button>
+                        <h2 class="font-bold text-chocolate text-lg">Riwayat & Lacak Pesanan</h2>
+                        ${orders.length ? orders.map(o => `
+                            <div class="bg-white p-4 rounded-2xl border border-orange-100 space-y-2">
+                                <div class="flex justify-between text-xs">
+                                    <span class="font-bold text-chocolate">📦 #${o.order_id || o.orderId}</span>
+                                    <span class="text-pink-custom font-bold">${o.status || 'Diproses'}</span>
+                                </div>
+                                <p class="text-[11px] text-gray-600">Total: ${formatRupiah(o.total || o.grand_total || 0)}</p>
+                                <p class="text-[11px] text-gray-600">Kurir: ${o.courier \vert{}\vert{} '-'} \vert{} Resi:${o.awb || o.resi || 'Menunggu Resi'}</p>
+                            </div>
+                        `).join('') : '<p class="text-xs text-gray-400">Tidak ada riwayat pesanan.</p>'}
+                    </div>
+                `;
+            } catch (e) {
+                showMessage('Error', 'Gagal memuat pesanan.');
+            }
+        }
+
+        function toggleFavorite(prodId) {
+            if (favorites.includes(prodId)) {
+                favorites = favorites.filter(id => id !== prodId);
+                showMessage('Favorit', 'Dihapus dari favorit.');
+            } else {
+                favorites.push(prodId);
+                showMessage('Favorit', 'Ditambahkan ke favorit!');
+            }
+            localStorage.setItem('favs', JSON.stringify(favorites));
+            if (window.currentViewFunc) window.currentViewFunc();
+        }
+
+        function showFavorites() {
+            window.currentViewFunc = showFavorites;
+            const container = document.getElementById('contentContainer');
+            const favProducts = products.filter(p => favorites.includes(p.id));
+            container.innerHTML = `
+                <div class="space-y-3 pb-16">
+                    <button onclick="showAccount()" class="text-sm font-bold text-chocolate">← Kembali</button>
+                    <h2 class="font-bold text-chocolate text-lg">Produk Favorit Saya</h2>
+                    <div class="grid grid-cols-2 gap-3">
+                        ${renderProductCards(favProducts)}
+                    </div>
+                </div>
+            `;
+        }
+
+        function showNotifications() {
+            showMessage('Notifikasi', '💬 Pesan baru dari Chat Seller!\n📦 Pesanan sedang diproses.\n🎉 Diskon Spesial Hari Ini!');
+        }
+
+        function checkSellerChatAccess() {
+            showChatWindow('ALL_GENERAL');
+        }
+
+        async function showChatWindow(prodId) {
+            window.currentViewFunc = () => showChatWindow(prodId);
+            const container = document.getElementById('contentContainer');
+            container.innerHTML = `
+                <div class="space-y-3 pb-20">
+                    <button onclick="showHome()" class="text-sm font-bold text-chocolate">← Kembali</button>
+                    <h2 class="font-bold text-chocolate text-lg">Ruang Chat Live</h2>
+                    <div id="chatLogs" class="bg-white p-3 rounded-2xl border border-orange-100 h-72 overflow-y-auto space-y-2 text-xs">
+                        <p class="text-gray-400">Memuat pesan...</p>
+                    </div>
+                    <div class="flex space-x-2">
+                        <input type="text" id="chatInput" placeholder="Tulis pesan..." class="flex-1 p-2.5 text-xs border rounded-xl">
+                        <button onclick="sendChatMessage('${prodId}')" class="px-4 py-2.5 bg-pink-btn text-white font-bold text-xs rounded-xl">Kirim</button>
+                    </div>
+                </div>
+            `;
+            loadChatMessages(prodId);
+        }
+
+        async function loadChatMessages(prodId) {
+            const logsEl = document.getElementById('chatLogs');
+            if (!logsEl) return;
+            try {
+                const res = await fetch(`${BASE_URL}?action=get_chats&sender_id=${currentUserId}`).then(r => r.json());
+                if (res.success && res.data.length > 0) {
+                    logsEl.innerHTML = res.data.map(c => `
+                        <div class="p-2 rounded-xl ${c.senderId === currentUserId ? 'bg-pink-50 text-right ml-10' : 'bg-orange-50 mr-10'}">
+                            <p class="text-[10px] font-bold text-gray-500">${c.senderName}</p>
+                            <p class="text-xs text-chocolate">${c.message}</p>
+                        </div>
+                    `).join('');
+                } else {
+                    logsEl.innerHTML = `<p class="text-xs text-gray-400 text-center">Belum ada percakapan.</p>`;
+                }
+            } catch (e) {}
+        }
+
+        function sendChatMessage(prodId) {
+            const input = document.getElementById('chatInput');
+            const msg = input.value.trim();
+            if (!msg) return;
+
+            fetch(BASE_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'text/plain' },
+                body: JSON.stringify({ action: 'send_chat', sender_id: currentUserId, sender_name: currentUserName, message: msg, product_id: prodId })
+            }).then(r => r.json()).then(() => {
+                input.value = '';
+                loadChatMessages(prodId);
+            });
+        }
+
+        function showPOSKasir() { showMessage('POS Kasir', 'Fitur POS Kasir Pro siap digunakan dari mode Seller.'); }
+        function showManageOrders() { showMessage('Kelola Pesanan', 'Silakan gunakan aplikasi Android atau update pesanan via Sheets.'); }
+        function showManageProducts() { showMessage('Kelola Produk', 'Fitur tambah/edit produk tersedia di backend.'); }
+        function showManageCategories() { showMessage('Kelola Kategori', 'Pengaturan kategori toko.'); }
+        function showManagePromos() { showMessage('Kelola Promo', 'Pengaturan promo aktif.'); }
+
+        function getDefaultCategories() {
+            return [
+                { id: "1", name: "Kue Ulang Tahun", icon: "🎂" },
+                { id: "2", name: "Cupcake", icon: "🧁" },
+                { id: "3", name: "Roti", icon: "🍞" },
+                { id: "4", name: "Cookies", icon: "🍪" },
+                { id: "5", name: "Dessert Box", icon: "📦" }
+            ];
+        }
+
+        // Inisialisasi awal saat halaman dibuka
+        loadAllData();
+        showHome();
+    </script>
+</body>
+</html>
