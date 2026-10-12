@@ -259,16 +259,16 @@
             const listEl = document.getElementById('reviewsList');
             if (!listEl) return;
             try {
-                const res = await fetch(`{encodeURIComponent(prodId)}`).then(r => r.json());
+                const res = await apiGet('get_reviews', { product_id: prodId });
                 if (res && res.success && res.data && res.data.length > 0) {
                     listEl.innerHTML = res.data.map(r => `
                         <div class="bg-white p-3 rounded-xl border border-orange-100 space-y-1">
                             <div class="flex justify-between items-center text-xs">
-                                <span class="font-bold text-chocolate">👤 ${r.userName} • ⭐ ${r.rating}/5</span>
-                                <span class="text-[10px] text-gray-400">${r.timestamp}</span>
+                                <span class="font-bold text-chocolate">👤 ${safeText(r.userName)} • ⭐ ${r.rating}/5</span>
+                                <span class="text-[10px] text-gray-400">${safeText(r.timestamp)}</span>
                             </div>
-                            <p class="text-xs text-gray-700">${r.comment}</p>
-                            ${r.imageUrl ? `<img src="${r.imageUrl}" class="w-20 h-20 object-cover rounded-lg mt-1">` : ''}
+                            <p class="text-xs text-gray-700">${safeText(r.comment)}</p>
+                            ${r.imageUrl ? `<img src="${safeText(r.imageUrl)}" class="w-20 h-20 object-cover rounded-lg mt-1">` : ''}
                         </div>
                     `).join('');
                 } else {
@@ -655,7 +655,7 @@
             window.currentViewFunc = () => showOrdersHistory(phone);
             const container = document.getElementById('contentContainer');
             try {
-                const res = await fetch(`{encodeURIComponent(phone)}`).then(r => r.json());
+                const res = await apiGet('orders', { phone: phone });
                 const orders = res.data || [];
                 container.innerHTML = `
                     <div class="space-y-4 pb-16">
@@ -664,11 +664,11 @@
                         ${orders.length ? orders.map(o => `
                             <div class="bg-white p-4 rounded-2xl border border-orange-100 space-y-2">
                                 <div class="flex justify-between text-xs">
-                                    <span class="font-bold text-chocolate">📦 #${o.order_id || o.orderId}</span>
-                                    <span class="text-pink-custom font-bold">${o.status || 'Diproses'}</span>
+                                    <span class="font-bold text-chocolate">📦 #${safeText(o.order_id || o.orderId)}</span>
+                                    <span class="text-pink-custom font-bold">${safeText(o.status || 'Diproses')}</span>
                                 </div>
                                 <p class="text-[11px] text-gray-600">Total: ${formatRupiah(o.total || o.grand_total || 0)}</p>
-                                <p class="text-[11px] text-gray-600">Kurir: ${o.courier || '-'} | Resi:${o.awb || o.resi || 'Menunggu Resi'}</p>
+                                <p class="text-[11px] text-gray-600">Kurir: ${safeText(o.courier \vert{}\vert{} '-')} \vert{} Resi:${safeText(o.awb || o.resi || 'Menunggu Resi')}</p>
                             </div>
                         `).join('') : '<p class="text-xs text-gray-400">Tidak ada riwayat pesanan.</p>'}
                     </div>
@@ -815,7 +815,7 @@
                 class="w-full p-3 rounded-xl border border-orange-200 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-pink-200"></label>`;
         }
         function sellerButton(label, onclick, extra = '') {
-            return `<button type="button" onclick="${onclick}" class="px-4 py-3 rounded-xl bg-pink-btn text-white font-bold text-xs">${label}</button>`;
+            return `<button type="button" onclick="${onclick}" class="px-4 py-3 rounded-xl bg-pink-btn text-white font-bold text-xs ${extra}">${label}</button>`;
         }
         function readFileAsDataURL(file) {
             return new Promise((resolve, reject) => {
@@ -1192,7 +1192,7 @@
                     ${sellerField('Nama Metode', 'name', item?.name || '', 'text', 'Contoh: QRIS Utama')}
                     <label class="block space-y-1"><span class="text-xs font-bold text-chocolate">Jenis Pembayaran</span>
                         <select name="type" id="paymentMethodType" class="w-full p-3 border border-orange-200 rounded-xl bg-white text-sm">
-                            ${['QRIS','Transfer Bank','E-Wallet','Tunai / Cash','Kartu Debit/Kredit','Lainnya'].map(t => `<option value="${t}" ${String(item?.type || 'QRIS') === t ? 'selected' : ''}>${t}</option>`).join('')}
+                            ${['QRIS','Transfer Bank','E-Wallet','Tunai / Cash','Kartu Debit/Kredit','Lainnya'].map(t => `<option value="${t}" ${String(item?.type \vert{}\vert{} 'QRIS') === t ? 'selected' : ''}>${t}</option>`).join('')}
                         </select>
                     </label>
                     <label class="block space-y-1"><span class="text-xs font-bold text-chocolate">Instruksi / Detail Pembayaran</span>
@@ -1433,4 +1433,3 @@
     </script>
 </body>
 </html>
-
