@@ -69,7 +69,7 @@
 
     <!-- JAVASCRIPT LOGIC & API INTEGRATION -->
     <script>
-        const BASE_URL = "https://script.google.com/macros/s/AKfycbysn3njPVnMQqzkCHFVZT3OwwegcWkcz6U8_-2mSTL5ZyaEuTpPCx6oS70NwPBpVMzU5A/exec";
+        const BASE_URL = "https://script.google.com/macros/s/AKfycby39m3UjNBIhLTyT5UAatDmVEx9tOsPNqh_K9IT6qoF9xo_nXehoKjLjYXzVMKFjy2L_A/exec";
         let products = [];
         let categories = [];
         let promos = [];
@@ -90,7 +90,17 @@
             alert(`${title}: ${message}`);
         }
 
-        async function loadAllData() {
+        async function loadPaymentMethods() {
+        try {
+          const result = await apiGet('get_payment_methods');
+          return Array.isArray(result.data) ? result.data.filter(x => String(x.status || 'active').toLowerCase() === 'active') : [];
+        } catch (error) {
+          console.warn('Metode pembayaran tidak dapat dimuat:', error);
+          return [];
+        }
+      }
+
+      async function loadAllData() {
             try {
                 const [resProd, resCat, resPromo] = await Promise.all([
                     fetch(`${BASE_URL}?action=products`).then(r => r.json()),
@@ -163,7 +173,8 @@
 
         function filterHomeProducts(keyword) {
             const grid = document.getElementById('productGrid');
-            const filtered = products.filter(p => p.name.toLowerCase().includes(keyword.toLowerCase()) || (p.description && p.description.toLowerCase().includes(keyword.toLowerCase())));
+            const q = String(keyword || '').trim().toLowerCase();
+        const filtered = products.filter(p => String(p.status || 'active').toLowerCase() === 'active' && (String(p.name || '').toLowerCase().includes(q) || String(p.description || '').toLowerCase().includes(q) || String(p.category || '').toLowerCase().includes(q)));
             grid.innerHTML = renderProductCards(filtered);
         }
 
@@ -175,7 +186,7 @@
                 return `
                     <div class="bg-white border border-orange-100 rounded-2xl p-2.5 flex flex-col shadow-sm">
                         <div class="relative h-36 rounded-xl overflow-hidden bg-gray-100 cursor-pointer" onclick="showProductDetail('${p.id}')">
-                            <img src="${displayImg}" alt="${p.name}" class="w-full h-full object-cover" onerror="this.src='https://via.placeholder.com/150?text=Kue'">
+                            <img src="${displayImg}" class="w-full h-full object-cover" onerror="this.src='https://via.placeholder.com/150?text=Kue'">
                             <button onclick="event.stopPropagation(); toggleFavorite('${p.id}')" class="absolute top-2 right-2 w-8 h-8 bg-white/90 rounded-full flex items-center justify-center text-pink-custom shadow-sm text-lg">
                                 ${isFav ? '♥' : '♡'}
                             </button>
@@ -199,7 +210,9 @@
             const container = document.getElementById('contentContainer');
             const activePromo = promos.find(pr => pr.productId === p.id || pr.productId === 'ALL');
             const finalPrice = activePromo ? p.price * (1 - activePromo.discount / 100) : p.price;
-            const imagesList = p.images && p.images.length ? p.images : [p.image];
+            window.currentDetailProductId = p.id;
+        currentQty = 1;
+        const imagesList = p.images && p.images.length ? p.images : [p.image];
             container.innerHTML = `
                 <div class="space-y-4 pb-12">
                     <button onclick="showHome()" class="text-sm font-bold text-chocolate flex items-center">← Kembali</button>
@@ -245,7 +258,9 @@
 
         let currentQty = 1;
         function adjustQty(val) {
-            currentQty = Math.max(1, currentQty + val);
+            const currentProduct = products.find(item => item.id === (window.currentDetailProductId || ''));
+        currentQty = Math.max(1, currentQty + val);
+        if (currentProduct && currentProduct.stock > 0) currentQty = Math.min(currentQty, Number(currentProduct.stock));
             const el = document.getElementById('qtyVal');
             if (el) el.innerText = currentQty;
         }
@@ -254,7 +269,7 @@
             const listEl = document.getElementById('reviewsList');
             if (!listEl) return;
             try {
-                const res = await fetch(`${BASE_URL}?action=get_reviews&product_id=${prodId}`).then(r => r.json());
+                const res = await fetch(`${BASE_URL}?action=get_reviews&product_id=${encodeURIComponent(prodId)}`).then(r => r.json());
                 if (res && res.success && res.data && res.data.length > 0) {
                     listEl.innerHTML = res.data.map(r => `
                         <div class="bg-white p-3 rounded-xl border border-orange-100 space-y-1">
@@ -311,7 +326,7 @@
         function showProductList(catName) {
             window.currentViewFunc = () => showProductList(catName);
             const container = document.getElementById('contentContainer');
-            const filtered = products.filter(p => p.category.toLowerCase() === catName.toLowerCase());
+            const filtered = products.filter(p => String(p.status || 'active').toLowerCase() === 'active' && String(p.category || '').toLowerCase() === String(catName || '').toLowerCase());
             container.innerHTML = `
                 <div class="space-y-3">
                     <button onclick="showCategory()" class="text-sm font-bold text-chocolate">← Kembali ke Kategori</button>
@@ -341,9 +356,9 @@
             if (!p) return;
             const exist = cart.find(item => item.product.id === prodId);
             if (exist) {
-                exist.quantity = Math.min(exist.quantity + currentQty, p.stock);
+                exist.quantity = Math.min(exist.quantity + currentQty, Number(p.stock) || 0);
             } else {
-                cart.push({ product: p, quantity: currentQty });
+                cart.push({ product: p, quantity: Math.min(currentQty, Number(p.stock) || 0) });
             }
             currentQty = 1;
             saveCartAndNotify(p.name);
@@ -402,7 +417,8 @@
         }
 
         function updateCartQty(idx, val) {
-            cart[idx].quantity += val;
+            const stock = Number(cart[idx].product.stock) || 0;
+        cart[idx].quantity = Math.min(stock, cart[idx].quantity + val);
             if (cart[idx].quantity <= 0) cart.splice(idx, 1);
             localStorage.setItem('cart', JSON.stringify(cart));
             showCart();
@@ -608,7 +624,7 @@
             window.currentViewFunc = () => showOrdersHistory(phone);
             const container = document.getElementById('contentContainer');
             try {
-                const res = await fetch(`${BASE_URL}?action=orders&phone=${phone}`).then(r => r.json());
+                const res = await fetch(`${BASE_URL}?action=orders&phone=${encodeURIComponent(phone)}`).then(r => r.json());
                 const orders = res.data || [];
                 container.innerHTML = `
                     <div class="space-y-4 pb-16">
@@ -621,7 +637,7 @@
                                     <span class="text-pink-custom font-bold">${o.status || 'Diproses'}</span>
                                 </div>
                                 <p class="text-[11px] text-gray-600">Total: ${formatRupiah(o.total || o.grand_total || 0)}</p>
-                                <p class="text-[11px] text-gray-600">Kurir: ${o.courier \vert{}\vert{} '-'} \vert{} Resi:${o.awb || o.resi || 'Menunggu Resi'}</p>
+                                <p class="text-[11px] text-gray-600">Kurir: ${o.courier || '-'} | Resi:${o.awb || o.resi || 'Menunggu Resi'}</p>
                             </div>
                         `).join('') : '<p class="text-xs text-gray-400">Tidak ada riwayat pesanan.</p>'}
                     </div>
@@ -689,7 +705,7 @@
             const logsEl = document.getElementById('chatLogs');
             if (!logsEl) return;
             try {
-                const res = await fetch(`${BASE_URL}?action=get_chats&sender_id=${currentUserId}`).then(r => r.json());
+                const res = await fetch(`${BASE_URL}?action=get_chats&sender_id=${encodeURIComponent(currentUserId)}`).then(r => r.json());
                 if (res && res.success && res.data && res.data.length > 0) {
                     logsEl.innerHTML = res.data.map(c => `
                         <div class="p-2 rounded-xl ${c.senderId === currentUserId ? 'bg-pink-50 text-right ml-10' : 'bg-orange-50 mr-10'}">
@@ -772,12 +788,12 @@
 
         function sellerField(label, name, value = '', type = 'text', placeholder = '') {
             return `<label class="block space-y-1"><span class="text-xs font-bold text-chocolate">${label}</span>
-                <input name="${name}" type="${type}" value="${safeText(value)}" placeholder="${safeText(placeholder)}"
+                <input name="{type}" value="{safeText(placeholder)}"
                 class="w-full p-3 rounded-xl border border-orange-200 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-pink-200"></label>`;
         }
 
         function sellerButton(label, onclick, extra = '') {
-            return `<button type="button" onclick="${onclick}" class="px-4 py-3 rounded-xl bg-pink-btn text-white font-bold text-xs ${extra}">${label}</button>`;
+            return `<button type="button" onclick="${onclick}" class="px-4 py-3 rounded-xl bg-pink-btn text-white font-bold text-xs {label}</button>`;
         }
 
         function readFileAsDataURL(file) {
@@ -836,17 +852,17 @@
                     const total = o.total || o.grand_total || o.total_price || 0;
                     const proof = o.proof_url || o.proofUrl || '';
                     return `<article class="bg-white p-4 rounded-2xl border border-orange-100 space-y-3">
-                        <div class="flex justify-between gap-2"><strong class="text-sm text-chocolate">📦 #${safeText(id)}</strong><span class="text-xs font-bold text-pink-custom">${safeText(status)}</span></div>
+                        <div class="flex justify-between gap-2"><strong class="text-sm text-chocolate">📦 #{safeText(status)}</span></div>
                         <p class="text-xs text-gray-600">📅 ${safeText(date)}<br>👤 ${safeText(customer)}<br>📍 ${safeText(address)}<br>💰 ${formatRupiah(total)}<br>🚚 ${safeText(courier)}<br>Resi: ${safeText(resi || 'Belum diinput')}</p>
                         ${proof ? `<a href="${safeText(proof)}" target="_blank" rel="noopener" class="text-xs font-bold text-pink-custom underline">Lihat bukti pembayaran</a>` : '<p class="text-xs text-gray-400">Bukti bayar tidak tersedia / COD.</p>'}
                         <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
                             <label class="text-xs text-gray-600">Status pesanan
                                 <select id="orderStatus_${index}" class="w-full mt-1 p-2 rounded-lg border border-orange-200 text-xs">
-                                    ${['Menunggu Pembayaran','Diproses','Dikemas','Dikirim','Selesai','Dibatalkan'].map(s => `<option ${s.toLowerCase() === String(status).toLowerCase() ? 'selected' : ''}>${s}</option>`).join('')}
+                                    ${['Menunggu Pembayaran','Diproses','Dikemas','Dikirim','Selesai','Dibatalkan'].map(s => `<option {s}</option>`).join('')}
                                 </select>
                             </label>
                             <label class="text-xs text-gray-600">Nomor resi
-                                <input id="orderResi_${index}" value="${safeText(resi)}" placeholder="Masukkan nomor resi" class="w-full mt-1 p-2 rounded-lg border border-orange-200 text-xs">
+                                <input id="orderResi_{safeText(resi)}" placeholder="Masukkan nomor resi" class="w-full mt-1 p-2 rounded-lg border border-orange-200 text-xs">
                             </label>
                         </div>
                         <div class="flex flex-wrap gap-2">
@@ -953,7 +969,7 @@
             if (!requireSeller()) return;
             const product = products.find(p => String(p.id) === String(productId));
             const cats = categories.length ? categories : getDefaultCategories();
-            const categoryOptions = cats.map(c => `<option value="${safeText(c.name)}" ${product && product.category === c.name ? 'selected' : ''}>${safeText(c.name)}</option>`).join('');
+            const categoryOptions = cats.map(c => `<option value="${safeText(c.name)}" {safeText(c.name)}</option>`).join('');
             const oldImages = product ? (product.images && product.images.length ? product.images : [product.image]).filter(Boolean) : [];
             
             sellerPage(product ? 'Edit Produk Kue' : 'Tambah Produk Kue Baru', `
@@ -1130,7 +1146,7 @@
         function showPOSKasir() {
             if (!requireSeller()) return;
             window.currentViewFunc = showPOSKasir;
-            const options = products.map(p => `<option value="${safeText(p.id)}">${safeText(p.name)} — ${formatRupiah(p.price)} (stok ${Number(p.stock)||0})</option>`).join('');
+            const options = products.map(p => `<option value="{safeText(p.name)} — ${formatRupiah(p.price)} (stok ${Number(p.stock)||0})</option>`).join('');
             sellerPage('POS Kasir Offline Pro', `
                 <div class="bg-white p-4 rounded-2xl border border-orange-100 space-y-3">
                     <label class="block space-y-1"><span class="text-xs font-bold text-chocolate">Pilih Produk</span><select id="posProduct" class="w-full p-3 border border-orange-200 rounded-xl text-sm">${options}</select></label>
@@ -1176,7 +1192,7 @@
             if (!el) return;
             el.innerHTML = posCart.length ? posCart.map(i => `
                 <div class="flex items-center gap-2 p-3 bg-white border border-orange-100 rounded-xl">
-                    <div class="flex-1"><p class="text-xs font-bold text-chocolate">${safeText(i.product.name)}</p><p class="text-[10px] text-gray-500">${i.quantity} × ${formatRupiah(i.product.price)}</p></div>
+                    <div class="flex-1"><p class="text-xs font-bold text-chocolate">{i.quantity} × ${formatRupiah(i.product.price)}</p></div>
                     <button onclick="updatePOSQty('${safeText(i.product.id)}', -1)" class="px-3 py-2 bg-orange-50 rounded-lg">-</button>
                     <button onclick="updatePOSQty('${safeText(i.product.id)}', 1)" class="px-3 py-2 bg-orange-50 rounded-lg">+</button>
                 </div>
@@ -1199,7 +1215,7 @@
                     total, payment: method,
                     items: posCart.map(i => ({ product_id: i.product.id, quantity: i.quantity, price: i.product.price }))
                 });
-                const receipt = `=========== AANG CAKESHOP ===========\nNota Kasir: #${result.order_id || '-'}\nMetode: ${method}\n-------------------------------------\n${posCart.map(i => `${i.product.name}\n${i.quantity} x ${formatRupiah(i.product.price)} =${formatRupiah(i.product.price * i.quantity)}`).join('\n')}\n-------------------------------------\nSubtotal: ${formatRupiah(subtotal)}\nPPN (11%): ${formatRupiah(tax)}\nTOTAL: ${formatRupiah(total)}\n=====================================\nTerima kasih ❤`;
+                const receipt = `=========== AANG CAKESHOP ===========\nNota Kasir: #${result.order_id || '-'}\nMetode: ${method}\n-------------------------------------\n${posCart.map(i => `${i.product.name}\n${i.quantity} x ${formatRupiah(i.product.price * i.quantity)}`).join('\n')}\n-------------------------------------\nSubtotal: ${formatRupiah(subtotal)}\nPPN (11%): ${formatRupiah(tax)}\nTOTAL: ${formatRupiah(total)}\n=====================================\nTerima kasih ❤`;
                 sellerPage('Struk Kasir', `
                     <pre class="whitespace-pre-wrap bg-white p-4 border border-orange-100 rounded-xl text-xs">${safeText(receipt)}</pre>
                     <div class="grid grid-cols-2 gap-2">
@@ -1234,7 +1250,7 @@
                     else if (String(c.timestamp) > String(buyers[id].time)) buyers[id] = { id, name: c.senderName || id, last: c.message || '', time: c.timestamp || '' };
                 });
                 const rows = Object.values(buyers).map(b => `
-                    <button onclick="showSellerChat('${safeText(b.id)}','${safeText(b.name)}')" class="w-full text-left bg-white border border-orange-100 rounded-xl p-3">
+                    <button onclick="showSellerChat('{safeText(b.name)}')" class="w-full text-left bg-white border border-orange-100 rounded-xl p-3">
                         <p class="font-bold text-sm text-chocolate">${safeText(b.name)}</p>
                         <p class="text-xs text-gray-500 mt-1">${safeText(b.last)}</p>
                         <p class="text-[10px] text-gray-400">${safeText(b.time)}</p>
@@ -1256,7 +1272,7 @@
                     <div id="sellerChatLogs" class="bg-white border border-orange-100 rounded-xl p-3 h-72 overflow-y-auto space-y-2">
                         ${chats.map(c => `
                             <div class="p-2 rounded-xl ${c.senderId === 'SELLER' ? 'bg-pink-50 ml-8' : 'bg-orange-50 mr-8'}">
-                                <p class="text-[10px] font-bold text-gray-500">${safeText(c.senderName)} ·${safeText(c.timestamp)}</p>
+                                <p class="text-[10px] font-bold text-gray-500">{safeText(c.timestamp)}</p>
                                 <p class="text-xs text-chocolate">${safeText(c.message)}</p>
                             </div>
                         `).join('') || '<p class="text-xs text-gray-400">Belum ada pesan.</p>'}
@@ -1332,3 +1348,4 @@
     </script>
 </body>
 </html>
+
