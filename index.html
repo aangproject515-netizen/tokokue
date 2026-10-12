@@ -35,12 +35,14 @@
             <button onclick="showCart()" class="text-xl p-1 relative" title="Keranjang">🛒</button>
         </div>
     </header>
+
     <!-- MAIN DYNAMIC CONTENT CONTAINER -->
     <main id="contentContainer" class="flex-1 max-w-2xl w-full mx-auto p-4">
         <div class="text-center py-10">
             <p class="text-xs text-gray-400 font-bold">Sedang memuat kue-kue manis...</p>
         </div>
     </main>
+
     <!-- BOTTOM NAVIGATION BAR -->
     <nav class="fixed bottom-0 left-0 right-0 max-w-2xl mx-auto bg-white border-t border-gray-200 h-16 flex justify-around items-center z-50 shadow-lg px-2">
         <button onclick="setActiveNav('home'); showHome()" class="flex flex-col items-center flex-1 text-pink-custom" id="navHome">
@@ -64,6 +66,7 @@
             <span class="text-[10px]">Akun</span>
         </button>
     </nav>
+
     <!-- JAVASCRIPT LOGIC & API INTEGRATION -->
     <script>
         const BASE_URL = "https://script.google.com/macros/s/AKfycby39m3UjNBIhLTyT5UAatDmVEx9tOsPNqh_K9IT6qoF9xo_nXehoKjLjYXzVMKFjy2L_A/exec";
@@ -76,11 +79,10 @@
         let sellerName = localStorage.getItem('seller_name') || 'Penjual Utama';
         let isUserLoggedIn = localStorage.getItem('is_user') === 'true';
         
-        // Gunakan ID konsisten berbasis localStorage agar riwayat chat tidak berubah-ubah setiap refresh
         let currentUserId = localStorage.getItem('user_id') || (() => {
-            const newId = 'USER_' + Math.floor(100000 + Math.random() * 900000);
-            localStorage.setItem('user_id', newId);
-            return newId;
+            const id = 'USER_' + Math.floor(100000 + Math.random() * 900000);
+            localStorage.setItem('user_id', id);
+            return id;
         })();
         let currentUserName = localStorage.getItem('user_name') || 'Pembeli Web';
         let currentUserEmail = localStorage.getItem('user_email') || '';
@@ -91,32 +93,23 @@
         function showMessage(title, message) {
             alert(`${title}: ${message}`);
         }
-        async function loadPaymentMethods() {
-            try {
-              const result = await apiGet('get_payment_methods');
-              return Array.isArray(result.data) ? result.data.filter(x => String(x.status || 'active').toLowerCase() === 'active') : [];
-            } catch (error) {
-              console.warn('Metode pembayaran tidak dapat dimuat:', error);
-              return [];
-            }
-        }
+
         async function loadAllData() {
             try {
-                const [resProd, resCat, resPromo] = await Promise.all([
-                    fetch(`${BASE_URL}?action=products`).then(r => r.json()),
-                    fetch(`${BASE_URL}?action=categories`).then(r => r.json()),
-                    fetch(`${BASE_URL}?action=promos`).then(r => r.json())
-                ]);
+                const resProd = await fetch(`${BASE_URL}?action=products`).then(r => r.json()).catch(() => null);
+                const resCat = await fetch(`${BASE_URL}?action=categories`).then(r => r.json()).catch(() => null);
+                const resPromo = await fetch(`${BASE_URL}?action=promos`).then(r => r.json()).catch(() => null);
+
                 if (resProd && resProd.success) products = resProd.data || [];
                 if (resCat && resCat.success) categories = resCat.data || [];
                 if (resPromo && resPromo.success) promos = resPromo.data || [];
-                
-                showHome();
             } catch (e) {
-                console.error("Gagal memuat data dari server:", e);
+                console.warn("Gagal memuat beberapa data dari server:", e);
+            } finally {
                 showHome();
             }
         }
+
         function setActiveNav(nav) {
             ['Home', 'Category', 'Cart', 'Promo', 'Account'].forEach(n => {
                 const btn = document.getElementById('nav' + n);
@@ -131,6 +124,7 @@
                 active.classList.add('text-pink-custom', 'font-bold');
             }
         }
+
         // ================= 1. BERANDA =================
         function showHome() {
             window.currentViewFunc = showHome;
@@ -168,12 +162,14 @@
             `;
             container.innerHTML = html;
         }
+
         function filterHomeProducts(keyword) {
             const grid = document.getElementById('productGrid');
             const q = String(keyword || '').trim().toLowerCase();
             const filtered = products.filter(p => String(p.status || 'active').toLowerCase() === 'active' && (String(p.name || '').toLowerCase().includes(q) || String(p.description || '').toLowerCase().includes(q) || String(p.category || '').toLowerCase().includes(q)));
             grid.innerHTML = renderProductCards(filtered);
         }
+
         function renderProductCards(prods) {
             if (!prods.length) return `<p class="col-span-2 text-center text-gray-400 py-6 text-xs">Belum ada produk kue.</p>`;
             return prods.map(p => {
@@ -197,6 +193,7 @@
                 `;
             }).join('');
         }
+
         // ================= 2. DETAIL PRODUK & ULASAN =================
         async function showProductDetail(productId) {
             window.currentViewFunc = () => showProductDetail(productId);
@@ -295,6 +292,7 @@
                 loadReviews(prodId);
             });
         }
+
         // ================= 3. KATEGORI & PRODUK LIST =================
         function showCategory() {
             window.currentViewFunc = showCategory;
@@ -327,6 +325,7 @@
                 </div>
             `;
         }
+
         // ================= 4. KERANJANG & CHECKOUT =================
         function addToCart(prodId) {
             const p = products.find(item => item.id === prodId);
@@ -473,7 +472,7 @@
             localStorage.setItem('cust_address', address);
             currentUserName = name;
             localStorage.setItem('user_name', name);
-            
+
             let base64Proof = "";
             if (fileInput.files[0]) {
                 base64Proof = await toBase64(fileInput.files[0]);
@@ -507,6 +506,7 @@
                 reader.onerror = error => reject(error);
             });
         }
+
         // ================= 5. PROMO & AKUN / SELLER =================
         function showPromo() {
             window.currentViewFunc = showPromo;
@@ -565,6 +565,7 @@
                 `;
             }
         }
+
         // ================= 6. FITUR TAMBAHAN (SELLER & LACAK) =================
         function showSellerLoginModal() {
             const email = prompt("Email Seller:", "seller@aangcakeshop.com");
@@ -709,6 +710,7 @@
                 showMessage('Gagal', 'Pesan gagal dikirim: ' + err.message);
             });
         }
+
         // ================= SELLER CENTER: API HELPER =================
         async function apiGet(action, params = {}) {
             const query = new URLSearchParams({ action, ...params });
@@ -771,6 +773,7 @@
                 reader.readAsDataURL(file);
             });
         }
+
         // ================= DASHBOARD SELLER =================
         async function showSellerDashboard() {
             if (!requireSeller()) return;
@@ -796,6 +799,7 @@
                 if (el) el.textContent = 'Tidak tersedia';
             }
         }
+
         // ================= PESANAN MASUK & LABEL =================
         async function showManageOrders() {
             if (!requireSeller()) return;
@@ -893,6 +897,7 @@
                 <script>window.onload=()=>window.print()<\/script></body></html>`);
             popup.document.close();
         }
+
         // ================= KELOLA PRODUK =================
         async function showManageProducts() {
             if (!requireSeller()) return;
@@ -978,6 +983,7 @@
                 showManageProducts();
             } catch (error) { showMessage('Gagal menghapus produk', error.message); }
         }
+
         // ================= KELOLA KATEGORI =================
         async function showManageCategories() {
             if (!requireSeller()) return;
@@ -1020,6 +1026,7 @@
                 showManageCategories();
             } catch (error) { showMessage('Gagal menghapus kategori', error.message); }
         }
+
         // ================= KELOLA PROMO & VOUCHER =================
         async function showManagePromos() {
             if (!requireSeller()) return;
@@ -1089,6 +1096,7 @@
                 showManagePromos();
             } catch (error) { showMessage('Gagal menghapus promo', error.message); }
         }
+
         // ================= POS KASIR OFFLINE PRO =================
         let posCart = [];
         function showPOSKasir() {
@@ -1176,6 +1184,7 @@
             const a = document.createElement('a'); a.href = url; a.download = 'Struk_Aang_Cakeshop.txt'; a.click();
             URL.revokeObjectURL(url);
         }
+
         // ================= CHAT SELLER =================
         async function showSellerChatList() {
             if (!requireSeller()) return;
@@ -1235,6 +1244,7 @@
                 });
             } catch (error) { showMessage('Gagal memuat chat', error.message); }
         }
+
         // ================= PENGATURAN PENGIRIMAN =================
         async function showShippingSettings() {
             if (!requireSeller()) return;
@@ -1270,6 +1280,7 @@
                 showShippingSettings();
             } catch (error) { showMessage('Gagal menyimpan pengiriman', error.message); }
         }
+
         function getDefaultCategories() {
             return [
                 { id: "1", name: "Kue Ulang Tahun", icon: "🎂" },
@@ -1279,7 +1290,8 @@
                 { id: "5", name: "Dessert Box", icon: "📦" }
             ];
         }
-        // Inisialisasi awal saat halaman dibuka
+
+        // Jalankan pemuatan data awal
         loadAllData();
     </script>
 </body>
