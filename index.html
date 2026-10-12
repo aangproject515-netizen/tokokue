@@ -433,10 +433,10 @@
                             <option>JNE Express</option><option>J&T Express</option><option>SiCepat Express</option><option>GrabExpress</option><option>GoSend</option>
                         </select>
                         <select id="chkPayment" onchange="togglePaymentProof(this.value)" class="w-full p-2.5 text-xs border border-orange-200 rounded-xl">
-                            <option>QRIS</option><option>BCA</option><option>COD / Bayar di Tempat</option>
+                            <option value="">Memuat metode pembayaran...</option>
                         </select>
                         <div id="paymentInstructions" class="text-xs text-gray-600 bg-orange-50 p-3 rounded-xl">
-                            Scan QRIS untuk pembayaran.
+                            Memuat instruksi pembayaran...
                         </div>
                         <input type="file" id="proofFile" class="w-full text-xs">
                     </div>
@@ -452,12 +452,42 @@
                     </button>
                 </div>
             `;
+            loadCheckoutPaymentMethods();
+        }
+        let checkoutPaymentMethods = [];
+        async function loadCheckoutPaymentMethods() {
+            const select = document.getElementById('chkPayment');
+            if (!select) return;
+            try {
+                const result = await apiGet('get_payment_methods');
+                checkoutPaymentMethods = (result.data || []).filter(m => String(m.status || 'active').toLowerCase() === 'active');
+            } catch (error) {
+                console.warn('Metode pembayaran toko tidak dapat dimuat:', error);
+                checkoutPaymentMethods = [];
+            }
+            const choices = checkoutPaymentMethods.map(m =>
+                `<option value="${safeText(m.name)}">${safeText(m.name)} (${safeText(m.type || 'Pembayaran')})</option>`
+            );
+            choices.push('<option value="COD / Bayar di Tempat">COD / Bayar di Tempat</option>');
+            select.innerHTML = choices.join('');
+            if (!choices.length) select.innerHTML = '<option value="COD / Bayar di Tempat">COD / Bayar di Tempat</option>';
+            togglePaymentProof(select.value);
         }
         function togglePaymentProof(method) {
             const el = document.getElementById('paymentInstructions');
-            if (method === 'QRIS') el.innerText = "Scan QRIS untuk pembayaran.";
-            else if (method === 'BCA') el.innerText = "Transfer ke BCA: 1109876333 a.n. Aang Cakeshop.";
-            else el.innerText = "Bayar tunai saat kurir tiba (COD).";
+            if (!el) return;
+            const item = checkoutPaymentMethods.find(m => String(m.name) === String(method));
+            if (item) {
+                const image = item.image_url || item.image || '';
+                el.innerHTML = `<p class="font-bold text-chocolate mb-1">${safeText(item.name)} — ${safeText(item.type || '')}</p>
+                    <p class="whitespace-pre-line">${safeText(item.detail || 'Ikuti instruksi pembayaran dari toko.')}</p>
+                    ${image ? `<img src="${safeText(image)}" alt="QR / informasi ${safeText(item.name)}" class="mt-3 mx-auto max-w-full max-h-72 rounded-xl border border-orange-200 bg-white object-contain" onerror="this.style.display='none'">` : ''}
+                    ${String(item.type || '').toUpperCase().includes('QRIS') && !image ? '<p class="mt-2 text-red-600 font-bold">Gambar QRIS belum diatur penjual. Hubungi toko sebelum membayar.</p>' : ''}`;
+            } else if (String(method).toUpperCase().includes('COD')) {
+                el.textContent = 'Bayar tunai saat kurir tiba (COD).';
+            } else {
+                el.textContent = 'Ikuti instruksi pembayaran yang ditampilkan toko.';
+            }
         }
         async function submitOrder(grandTotal) {
             const name = document.getElementById('chkName').value;
@@ -544,6 +574,7 @@
                         <button onclick="showManageProducts()" class="w-full p-3 bg-white border border-orange-100 rounded-xl font-bold text-xs text-chocolate shadow-sm text-left">🍰 Kelola & Tambah Produk</button>
                         <button onclick="showManageCategories()" class="w-full p-3 bg-white border border-orange-100 rounded-xl font-bold text-xs text-chocolate shadow-sm text-left">🏷️ Kelola Kategori Toko</button>
                         <button onclick="showManagePromos()" class="w-full p-3 bg-white border border-orange-100 rounded-xl font-bold text-xs text-chocolate shadow-sm text-left">🎁 Kelola Promo & Voucher</button>
+                        <button onclick="showManagePaymentMethods()" class="w-full p-3 bg-white border border-orange-100 rounded-xl font-bold text-xs text-chocolate shadow-sm text-left">💳 Kelola Metode Pembayaran</button>
                         <button onclick="showShippingSettings()" class="w-full p-3 bg-white border border-orange-100 rounded-xl font-bold text-xs text-chocolate shadow-sm text-left">🚚 Pengaturan Pengiriman Toko</button>
                         <button onclick="logoutSeller()" class="w-full p-3 bg-red-50 text-red-600 border border-red-200 rounded-xl font-bold text-xs text-left">🚪 Keluar Mode Seller</button>
                     </div>
@@ -714,7 +745,7 @@
         // ================= SELLER CENTER: API HELPER =================
         async function apiGet(action, params = {}) {
             const query = new URLSearchParams({ action, ...params });
-            const response = await fetch(`{query.toString()}`, { cache: 'no-store' });
+            const response = await fetch(`${BASE_URL}?${query.toString()}`, { cache: 'no-store' });
             if (!response.ok) throw new Error(`Server mengembalikan HTTP ${response.status}`);
             const result = await response.json();
             if (result && result.success === false) throw new Error(result.message || 'Permintaan gagal.');
@@ -1095,6 +1126,91 @@
                 await refreshSellerData();
                 showManagePromos();
             } catch (error) { showMessage('Gagal menghapus promo', error.message); }
+        }
+
+        // ================= KELOLA METODE PEMBAYARAN TOKO =================
+        let sellerPaymentMethods = [];
+        async function showManagePaymentMethods() {
+            if (!requireSeller()) return;
+            window.currentViewFunc = showManagePaymentMethods;
+            sellerPage('Kelola Metode Pembayaran Toko', '<p class="text-xs text-gray-500">Memuat metode pembayaran...</p>');
+            try {
+                const result = await apiGet('get_payment_methods');
+                sellerPaymentMethods = result.data || [];
+                const rows = sellerPaymentMethods.map(m => `
+                    <article class="bg-white border border-orange-100 rounded-2xl p-3 flex gap-3 items-start">
+                        ${m.image_url ? `<img src="${safeText(m.image_url)}" alt="QR pembayaran" class="w-20 h-20 object-contain rounded-lg border border-orange-100 bg-white">` : `<div class="w-20 h-20 rounded-lg bg-orange-50 flex items-center justify-center text-2xl">💳</div>`}
+                        <div class="flex-1 min-w-0">
+                            <p class="font-bold text-sm text-chocolate">${safeText(m.name)}</p>
+                            <p class="text-xs text-pink-custom font-bold">${safeText(m.type || 'Pembayaran')}</p>
+                            <p class="text-xs text-gray-600 whitespace-pre-line mt-1">${safeText(m.detail || '-')}</p>
+                            <p class="text-[10px] mt-1 ${String(m.status || 'active').toLowerCase() === 'active' ? 'text-green-700' : 'text-gray-400'}">Status: ${safeText(m.status || 'active')}</p>
+                            <div class="flex gap-2 mt-2">
+                                <button onclick="editSellerPaymentMethod('${safeText(m.id)}')" class="px-3 py-2 bg-orange-50 rounded-lg text-xs font-bold">Edit</button>
+                                <button onclick="deleteSellerPaymentMethod('${safeText(m.id)}')" class="px-3 py-2 bg-red-50 text-red-600 rounded-lg text-xs font-bold">Hapus</button>
+                            </div>
+                        </div>
+                    </article>`).join('');
+                sellerPage('Kelola Metode Pembayaran Toko', `
+                    <p class="text-xs text-gray-600">Tambahkan atau edit QRIS, transfer bank, dan metode lain. Untuk QRIS, unggah gambar QR yang benar agar muncul di checkout pembeli.</p>
+                    ${sellerButton('➕ Tambah Metode Pembayaran', "editSellerPaymentMethod('')", 'w-full')}
+                    <div class="space-y-3 mt-3">${rows || '<p class="bg-white p-4 rounded-xl text-xs text-gray-500">Belum ada metode pembayaran.</p>'}</div>
+                `);
+            } catch (error) {
+                sellerPage('Kelola Metode Pembayaran Toko', `<p class="bg-red-50 text-red-700 rounded-xl p-3 text-xs">${safeText(error.message)}</p>
+                    <button onclick="showManagePaymentMethods()" class="w-full p-3 bg-pink-btn text-white rounded-xl text-xs font-bold">Coba Lagi</button>`);
+            }
+        }
+        async function editSellerPaymentMethod(id = '') {
+            if (!requireSeller()) return;
+            const item = sellerPaymentMethods.find(m => String(m.id) === String(id));
+            const isEdit = !!item;
+            sellerPage(isEdit ? 'Edit Metode Pembayaran' : 'Tambah Metode Pembayaran', `
+                <form id="paymentMethodForm" class="bg-white border border-orange-100 rounded-2xl p-4 space-y-3">
+                    <input type="hidden" name="id" value="${safeText(item?.id || '')}">
+                    ${sellerField('Nama Metode', 'name', item?.name || '', 'text', 'Contoh: QRIS Utama')}
+                    <label class="block space-y-1"><span class="text-xs font-bold text-chocolate">Jenis Pembayaran</span>
+                        <select name="type" id="paymentMethodType" class="w-full p-3 border border-orange-200 rounded-xl bg-white text-sm">
+                            ${['QRIS','Transfer Bank','E-Wallet','Tunai / Cash','Kartu Debit/Kredit','Lainnya'].map(t => `<option value="${t}" ${String(item?.type || 'QRIS') === t ? 'selected' : ''}>${t}</option>`).join('')}
+                        </select>
+                    </label>
+                    <label class="block space-y-1"><span class="text-xs font-bold text-chocolate">Instruksi / Detail Pembayaran</span>
+                        <textarea name="detail" rows="3" class="w-full p-3 border border-orange-200 rounded-xl text-sm" placeholder="Nomor rekening, nama pemilik, atau instruksi">${safeText(item?.detail || '')}</textarea>
+                    </label>
+                    <div class="space-y-1"><label for="paymentMethodImage" class="text-xs font-bold text-chocolate">Gambar QRIS / Logo (opsional)</label>
+                        <input id="paymentMethodImage" type="file" accept="image/*" class="w-full text-xs">
+                        <p class="text-[10px] text-gray-500">Jika mengedit tanpa memilih gambar baru, gambar lama tetap digunakan.</p>
+                        ${item?.image_url ? `<img src="${safeText(item.image_url)}" class="w-32 h-32 object-contain border border-orange-100 rounded-xl mt-2">` : ''}
+                    </div>
+                    <button type="submit" class="w-full py-3 rounded-xl bg-pink-btn text-white font-bold text-sm">💾 Simpan Metode</button>
+                    <button type="button" onclick="showManagePaymentMethods()" class="w-full py-3 rounded-xl border border-orange-200 text-chocolate font-bold text-sm">Batal</button>
+                </form>`);
+            document.getElementById('paymentMethodForm').addEventListener('submit', async event => {
+                event.preventDefault();
+                const form = event.currentTarget;
+                const fd = new FormData(form);
+                const name = String(fd.get('name') || '').trim();
+                const type = String(fd.get('type') || 'QRIS');
+                const detail = String(fd.get('detail') || '').trim();
+                if (!name) return showMessage('Metode Pembayaran', 'Nama metode wajib diisi.');
+                const file = document.getElementById('paymentMethodImage').files?.[0];
+                try {
+                    const image_base64 = file ? await readFileAsDataURL(file) : '';
+                    const result = await apiPost('save_payment_method', { id: String(fd.get('id') || ''), name, type, detail, image_base64 });
+                    showMessage('Metode Pembayaran', result.message || 'Metode pembayaran berhasil disimpan.');
+                    await showManagePaymentMethods();
+                } catch (error) { showMessage('Gagal menyimpan metode pembayaran', error.message); }
+            });
+        }
+        async function deleteSellerPaymentMethod(id) {
+            if (!requireSeller()) return;
+            const item = sellerPaymentMethods.find(m => String(m.id) === String(id));
+            if (!confirm(`Hapus metode pembayaran "${item?.name || id}"?`)) return;
+            try {
+                const result = await apiPost('delete_payment_method', { id });
+                showMessage('Metode Pembayaran', result.message || 'Metode pembayaran dihapus.');
+                await showManagePaymentMethods();
+            } catch (error) { showMessage('Gagal menghapus metode pembayaran', error.message); }
         }
 
         // ================= POS KASIR OFFLINE PRO =================
