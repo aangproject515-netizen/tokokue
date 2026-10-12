@@ -91,22 +91,23 @@
             return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(amount || 0).replace(',00', '');
         }
         function showMessage(title, message) {
-            alert(`${title}: ${message}`);
+            alert(title + ": " + message);
         }
 
         async function loadAllData() {
+            showHome(); // Tampilkan UI beranda terlebih dahulu
             try {
-                const resProd = await fetch(`${BASE_URL}?action=products`).then(r => r.json()).catch(() => null);
-                const resCat = await fetch(`${BASE_URL}?action=categories`).then(r => r.json()).catch(() => null);
-                const resPromo = await fetch(`${BASE_URL}?action=promos`).then(r => r.json()).catch(() => null);
+                const resProd = await fetch(BASE_URL + "?action=products").then(r => r.json()).catch(() => null);
+                const resCat = await fetch(BASE_URL + "?action=categories").then(r => r.json()).catch(() => null);
+                const resPromo = await fetch(BASE_URL + "?action=promos").then(r => r.json()).catch(() => null);
 
                 if (resProd && resProd.success) products = resProd.data || [];
                 if (resCat && resCat.success) categories = resCat.data || [];
                 if (resPromo && resPromo.success) promos = resPromo.data || [];
+                
+                showHome(); // Perbarui tampilan setelah data selesai dimuat dari server
             } catch (e) {
-                console.warn("Gagal memuat beberapa data dari server:", e);
-            } finally {
-                showHome();
+                console.warn("Gagal memuat data:", e);
             }
         }
 
@@ -131,35 +132,35 @@
             setActiveNav('home');
             const container = document.getElementById('contentContainer');
             
-            let html = `
-                <div class="space-y-4">
-                    <div>
-                        <input type="text" id="searchInput" placeholder="Cari kue favorit kamu di sini..." oninput="filterHomeProducts(this.value)" 
-                            class="w-full px-4 py-3 rounded-xl border border-orange-200 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-[#D9777F]">
-                    </div>
-                    <div>
-                        <h2 class="font-bold text-chocolate text-base mb-2">Kategori</h2>
-                        <div class="flex overflow-x-auto space-x-3 pb-2 scrollbar-none">
-                            ${(categories.length ? categories : getDefaultCategories()).map(c => `
-                                <div onclick="showProductList('${c.name}')" class="flex-shrink-0 w-20 h-24 bg-orange-50 border border-orange-100 rounded-xl flex flex-col items-center justify-center p-2 cursor-pointer shadow-sm">
-                                    <span class="text-2xl">${c.icon}</span>
-                                    <span class="text-[11px] font-bold text-chocolate text-center mt-1 truncate w-full">${c.name}</span>
-                                </div>
-                            `).join('')}
-                        </div>
-                    </div>
-                    <div onclick="showPromo()" class="bg-gradient-to-r from-pink-100 to-orange-100 border border-pink-200 rounded-2xl p-4 cursor-pointer shadow-sm">
-                        <h3 class="font-bold text-chocolate text-sm">🎉 Promo Manis Diskon Spesial!</h3>
-                        <p class="text-xs text-gray-600 mt-1">Untuk Hari-Hari Spesial Kamu ❤ Lihat Promo →</p>
-                    </div>
-                    <div>
-                        <h2 class="font-bold text-chocolate text-base mb-2">Produk Pilihan</h2>
-                        <div id="productGrid" class="grid grid-cols-2 gap-3">
-                            ${renderProductCards(products)}
-                        </div>
-                    </div>
-                </div>
-            `;
+            const catList = categories.length ? categories : getDefaultCategories();
+            
+            let html = '<div class="space-y-4">' +
+                '<div>' +
+                    '<input type="text" id="searchInput" placeholder="Cari kue favorit kamu di sini..." oninput="filterHomeProducts(this.value)" class="w-full px-4 py-3 rounded-xl border border-orange-200 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-[#D9777F]">' +
+                '</div>' +
+                '<div>' +
+                    '<h2 class="font-bold text-chocolate text-base mb-2">Kategori</h2>' +
+                    '<div class="flex overflow-x-auto space-x-3 pb-2 scrollbar-none">' +
+                        catList.map(c => 
+                            '<div onclick="showProductList(\'' + c.name + '\')" class="flex-shrink-0 w-20 h-24 bg-orange-50 border border-orange-100 rounded-xl flex flex-col items-center justify-center p-2 cursor-pointer shadow-sm">' +
+                                '<span class="text-2xl">' + c.icon + '</span>' +
+                                '<span class="text-[11px] font-bold text-chocolate text-center mt-1 truncate w-full">' + c.name + '</span>' +
+                            '</div>'
+                        ).join('') +
+                    '</div>' +
+                '</div>' +
+                '<div onclick="showPromo()" class="bg-gradient-to-r from-pink-100 to-orange-100 border border-pink-200 rounded-2xl p-4 cursor-pointer shadow-sm">' +
+                    '<h3 class="font-bold text-chocolate text-sm">🎉 Promo Manis Diskon Spesial!</h3>' +
+                    '<p class="text-xs text-gray-600 mt-1">Untuk Hari-Hari Spesial Kamu ❤ Lihat Promo →</p>' +
+                '</div>' +
+                '<div>' +
+                    '<h2 class="font-bold text-chocolate text-base mb-2">Produk Pilihan</h2>' +
+                    '<div id="productGrid" class="grid grid-cols-2 gap-3">' +
+                        renderProductCards(products) +
+                    '</div>' +
+                '</div>' +
+            '</div>';
+            
             container.innerHTML = html;
         }
 
@@ -171,26 +172,24 @@
         }
 
         function renderProductCards(prods) {
-            if (!prods.length) return `<p class="col-span-2 text-center text-gray-400 py-6 text-xs">Belum ada produk kue.</p>`;
+            if (!prods.length) return '<p class="col-span-2 text-center text-gray-400 py-6 text-xs">Belum ada produk kue.</p>';
             return prods.map(p => {
                 const isFav = favorites.includes(p.id);
                 const displayImg = p.image || (p.images && p.images[0]) || '';
-                return `
-                    <div class="bg-white border border-orange-100 rounded-2xl p-2.5 flex flex-col shadow-sm">
-                        <div class="relative h-36 rounded-xl overflow-hidden bg-gray-100 cursor-pointer" onclick="showProductDetail('${p.id}')">
-                            <img src="${displayImg}" class="w-full h-full object-cover" onerror="this.src='https://via.placeholder.com/150?text=Kue'">
-                            <button onclick="event.stopPropagation(); toggleFavorite('${p.id}')" class="absolute top-2 right-2 w-8 h-8 bg-white/90 rounded-full flex items-center justify-center text-pink-custom shadow-sm text-lg">
-                                ${isFav ? '♥' : '♡'}
-                            </button>
-                        </div>
-                        <h3 class="font-bold text-chocolate text-xs mt-2 line-clamp-2 cursor-pointer" onclick="showProductDetail('${p.id}')">${p.name}</h3>
-                        <p class="text-[10px] text-gray-400 mt-0.5">⭐ ${p.rating ? p.rating.toFixed(1) : '0.0'} • ${p.sold_count || 0} terjual</p>
-                        <p class="font-bold text-pink-custom text-xs mt-1">${formatRupiah(p.price)}</p>
-                        <button onclick="addToCart('${p.id}')" ${p.stock <= 0 ? 'disabled' : ''} class="mt-2 w-full py-1.5 rounded-xl text-xs font-bold text-white bg-pink-btn ${p.stock <= 0 ? 'opacity-50 cursor-not-allowed' : ''}">
-                            ${p.stock > 0 ? '+ Tambah' : 'Stok Habis'}
-                        </button>
-                    </div>
-                `;
+                return '<div class="bg-white border border-orange-100 rounded-2xl p-2.5 flex flex-col shadow-sm">' +
+                    '<div class="relative h-36 rounded-xl overflow-hidden bg-gray-100 cursor-pointer" onclick="showProductDetail(\'' + p.id + '\')">' +
+                        '<img src="' + displayImg + '" class="w-full h-full object-cover" onerror="this.src=\'https://via.placeholder.com/150?text=Kue\'">' +
+                        '<button onclick="event.stopPropagation(); toggleFavorite(\'' + p.id + '\')" class="absolute top-2 right-2 w-8 h-8 bg-white/90 rounded-full flex items-center justify-center text-pink-custom shadow-sm text-lg">' +
+                            (isFav ? '♥' : '♡') +
+                        '</button>' +
+                    '</div>' +
+                    '<h3 class="font-bold text-chocolate text-xs mt-2 line-clamp-2 cursor-pointer" onclick="showProductDetail(\'' + p.id + '\')">' + p.name + '</h3>' +
+                    '<p class="text-[10px] text-gray-400 mt-0.5">⭐ ' + (p.rating ? p.rating.toFixed(1) : '0.0') + ' • ' + (p.sold_count || 0) + ' terjual</p>' +
+                    '<p class="font-bold text-pink-custom text-xs mt-1">' + formatRupiah(p.price) + '</p>' +
+                    '<button onclick="addToCart(\'' + p.id + '\')" ' + (p.stock <= 0 ? 'disabled' : '') + ' class="mt-2 w-full py-1.5 rounded-xl text-xs font-bold text-white bg-pink-btn ' + (p.stock <= 0 ? 'opacity-50 cursor-not-allowed' : '') + '">' +
+                        (p.stock > 0 ? '+ Tambah' : 'Stok Habis') +
+                    '</button>' +
+                '</div>';
             }).join('');
         }
 
@@ -205,48 +204,46 @@
             window.currentDetailProductId = p.id;
             currentQty = 1;
             const imagesList = p.images && p.images.length ? p.images : [p.image];
-            container.innerHTML = `
-                <div class="space-y-4 pb-12">
-                    <button onclick="showHome()" class="text-sm font-bold text-chocolate flex items-center">← Kembali</button>
-                    <div class="flex overflow-x-auto space-x-2 pb-2 scrollbar-none">
-                        ${imagesList.map(img => `<img src="${img}" class="w-64 h-52 object-cover rounded-2xl flex-shrink-0 bg-gray-100 border border-orange-100" onerror="this.src='https://via.placeholder.com/300?text=Foto+Kue'">`).join('')}
-                    </div>
-                    <h1 class="text-xl font-bold text-chocolate">${p.name}</h1>
-                    <div class="flex items-baseline space-x-2">
-                        <span class="text-2xl font-bold text-pink-custom">${formatRupiah(finalPrice)}</span>
-                        ${activePromo ? `<span class="text-xs bg-pink-100 text-pink-custom px-2 py-0.5 rounded-full font-bold">Diskon ${activePromo.discount}%</span>` : ''}
-                    </div>
-                    <p class="text-xs text-gray-500">⭐ ${p.rating ? p.rating.toFixed(1) : '0.0'} / 5.0 • ${p.sold_count || 0} Terjual • Stok: ${p.stock}</p>
-                    <button onclick="showChatWindow('${p.id}')" class="w-full py-2.5 bg-white border border-orange-200 text-chocolate font-bold text-xs rounded-xl shadow-sm">
-                        💬 Tanya Seller Mengenai Produk Ini
-                    </button>
-                    <div>
-                        <h3 class="font-bold text-chocolate text-sm mb-1">Deskripsi Kue</h3>
-                        <p class="text-xs text-gray-600 bg-white p-3 rounded-xl border border-orange-100 leading-relaxed">${p.description || 'Tidak ada deskripsi produk.'}</p>
-                    </div>
-                    <div>
-                        <h3 class="font-bold text-chocolate text-sm mb-2">Ulasan Pembeli</h3>
-                        <div id="reviewsList" class="space-y-2">
-                            <p class="text-xs text-gray-400">Memuat ulasan...</p>
-                        </div>
-                        <button onclick="openReviewDialog('${p.id}')" class="mt-3 w-full py-2 bg-pink-btn text-white text-xs font-bold rounded-xl">
-                            ✍ Beri Ulasan & Rating Kue Ini
-                        </button>
-                    </div>
-                    <div class="flex items-center space-x-3 pt-4 border-t border-orange-100">
-                        <div class="flex items-center border border-orange-200 rounded-xl bg-white">
-                            <button onclick="adjustQty(-1)" class="w-10 h-10 font-bold text-lg text-chocolate">−</button>
-                            <span id="qtyVal" class="w-10 text-center font-bold text-sm">1</span>
-                            <button onclick="adjustQty(1)" class="w-10 h-10 font-bold text-lg text-chocolate">+</button>
-                        </div>
-                        <button onclick="addToCartQty('${p.id}')" class="flex-1 py-3 bg-pink-btn text-white font-bold text-sm rounded-xl shadow-md">
-                            🛒 Tambahkan Ke Keranjang
-                        </button>
-                    </div>
-                </div>
-            `;
+            
+            container.innerHTML = '<div class="space-y-4 pb-12">' +
+                '<button onclick="showHome()" class="text-sm font-bold text-chocolate flex items-center">← Kembali</button>' +
+                '<div class="flex overflow-x-auto space-x-2 pb-2 scrollbar-none">' +
+                    imagesList.map(img => '<img src="' + img + '" class="w-64 h-52 object-cover rounded-2xl flex-shrink-0 bg-gray-100 border border-orange-100" onerror="this.src=\'https://via.placeholder.com/300?text=Foto+Kue\'">').join('') +
+                '</div>' +
+                '<h1 class="text-xl font-bold text-chocolate">' + p.name + '</h1>' +
+                '<div class="flex items-baseline space-x-2">' +
+                    '<span class="text-2xl font-bold text-pink-custom">' + formatRupiah(finalPrice) + '</span>' +
+                    (activePromo ? '<span class="text-xs bg-pink-100 text-pink-custom px-2 py-0.5 rounded-full font-bold">Diskon ' + activePromo.discount + '%</span>' : '') +
+                '</div>' +
+                '<p class="text-xs text-gray-500">⭐ ' + (p.rating ? p.rating.toFixed(1) : '0.0') + ' / 5.0 • ' + (p.sold_count || 0) + ' Terjual • Stok: ' + p.stock + '</p>' +
+                '<button onclick="showChatWindow(\'' + p.id + '\')" class="w-full py-2.5 bg-white border border-orange-200 text-chocolate font-bold text-xs rounded-xl shadow-sm">' +
+                    '💬 Tanya Seller Mengenai Produk Ini' +
+                '</button>' +
+                '<div>' +
+                    '<h3 class="font-bold text-chocolate text-sm mb-1">Deskripsi Kue</h3>' +
+                    '<p class="text-xs text-gray-600 bg-white p-3 rounded-xl border border-orange-100 leading-relaxed">' + (p.description || 'Tidak ada deskripsi produk.') + '</p>' +
+                '</div>' +
+                '<div>' +
+                    '<h3 class="font-bold text-chocolate text-sm mb-2">Ulasan Pembeli</h3>' +
+                    '<div id="reviewsList" class="space-y-2"><p class="text-xs text-gray-400">Memuat ulasan...</p></div>' +
+                    '<button onclick="openReviewDialog(\'' + p.id + '\')" class="mt-3 w-full py-2 bg-pink-btn text-white text-xs font-bold rounded-xl">' +
+                        '✍ Beri Ulasan & Rating Kue Ini' +
+                    '</button>' +
+                '</div>' +
+                '<div class="flex items-center space-x-3 pt-4 border-t border-orange-100">' +
+                    '<div class="flex items-center border border-orange-200 rounded-xl bg-white">' +
+                        '<button onclick="adjustQty(-1)" class="w-10 h-10 font-bold text-lg text-chocolate">−</button>' +
+                        '<span id="qtyVal" class="w-10 text-center font-bold text-sm">1</span>' +
+                        '<button onclick="adjustQty(1)" class="w-10 h-10 font-bold text-lg text-chocolate">+</button>' +
+                    '</div>' +
+                    '<button onclick="addToCartQty(\'' + p.id + '\')" class="flex-1 py-3 bg-pink-btn text-white font-bold text-sm rounded-xl shadow-md">' +
+                        '🛒 Tambahkan Ke Keranjang' +
+                    '</button>' +
+                '</div>' +
+            '</div>';
             loadReviews(p.id);
         }
+
         let currentQty = 1;
         function adjustQty(val) {
             const currentProduct = products.find(item => item.id === (window.currentDetailProductId || ''));
@@ -255,29 +252,29 @@
             const el = document.getElementById('qtyVal');
             if (el) el.innerText = currentQty;
         }
+
         async function loadReviews(prodId) {
             const listEl = document.getElementById('reviewsList');
             if (!listEl) return;
             try {
-                const res = await fetch(`${BASE_URL}?action=get_reviews&product_id=${encodeURIComponent(prodId)}`).then(r => r.json());
+                const res = await fetch(BASE_URL + "?action=get_reviews&product_id=" + encodeURIComponent(prodId)).then(r => r.json());
                 if (res && res.success && res.data && res.data.length > 0) {
-                    listEl.innerHTML = res.data.map(r => `
-                        <div class="bg-white p-3 rounded-xl border border-orange-100 space-y-1">
-                            <div class="flex justify-between items-center text-xs">
-                                <span class="font-bold text-chocolate">👤 ${r.userName} • ⭐ ${r.rating}/5</span>
-                                <span class="text-[10px] text-gray-400">${r.timestamp}</span>
-                            </div>
-                            <p class="text-xs text-gray-700">${r.comment}</p>
-                            ${r.imageUrl ? `<img src="${r.imageUrl}" class="w-20 h-20 object-cover rounded-lg mt-1">` : ''}
-                        </div>
-                    `).join('');
+                    listEl.innerHTML = res.data.map(r => '<div class="bg-white p-3 rounded-xl border border-orange-100 space-y-1">' +
+                        '<div class="flex justify-between items-center text-xs">' +
+                            '<span class="font-bold text-chocolate">👤 ' + r.userName + ' • ⭐ ' + r.rating + '/5</span>' +
+                            '<span class="text-[10px] text-gray-400">' + r.timestamp + '</span>' +
+                        '</div>' +
+                        '<p class="text-xs text-gray-700">' + r.comment + '</p>' +
+                        (r.imageUrl ? '<img src="' + r.imageUrl + '" class="w-20 h-20 object-cover rounded-lg mt-1">' : '') +
+                    '</div>').join('');
                 } else {
-                    listEl.innerHTML = `<p class="text-xs text-gray-400 italic">Belum ada ulasan untuk kue ini.</p>`;
+                    listEl.innerHTML = '<p class="text-xs text-gray-400 italic">Belum ada ulasan untuk kue ini.</p>';
                 }
             } catch (e) {
-                listEl.innerHTML = `<p class="text-xs text-gray-400 italic">Belum ada ulasan untuk kue ini.</p>`;
+                listEl.innerHTML = '<p class="text-xs text-gray-400 italic">Belum ada ulasan untuk kue ini.</p>';
             }
         }
+
         function openReviewDialog(prodId) {
             const rating = prompt("Beri Rating (1 - 5):", "5");
             if (!rating) return;
@@ -299,31 +296,24 @@
             setActiveNav('category');
             const container = document.getElementById('contentContainer');
             const catList = categories.length ? categories : getDefaultCategories();
-            container.innerHTML = `
-                <div class="space-y-3">
-                    <h2 class="font-bold text-chocolate text-lg mb-2">Kategori Kue</h2>
-                    ${catList.map(c => `
-                        <div onclick="showProductList('${c.name}')" class="bg-white p-4 rounded-2xl border border-orange-100 flex items-center space-x-4 cursor-pointer shadow-sm">
-                            <span class="text-3xl">${c.icon}</span>
-                            <span class="font-bold text-chocolate text-base">${c.name}</span>
-                        </div>
-                    `).join('')}
-                </div>
-            `;
+            container.innerHTML = '<div class="space-y-3">' +
+                '<h2 class="font-bold text-chocolate text-lg mb-2">Kategori Kue</h2>' +
+                catList.map(c => '<div onclick="showProductList(\'' + c.name + '\')" class="bg-white p-4 rounded-2xl border border-orange-100 flex items-center space-x-4 cursor-pointer shadow-sm">' +
+                    '<span class="text-3xl">' + c.icon + '</span>' +
+                    '<span class="font-bold text-chocolate text-base">' + c.name + '</span>' +
+                '</div>').join('') +
+            '</div>';
         }
+
         function showProductList(catName) {
             window.currentViewFunc = () => showProductList(catName);
             const container = document.getElementById('contentContainer');
             const filtered = products.filter(p => String(p.status || 'active').toLowerCase() === 'active' && String(p.category || '').toLowerCase() === String(catName || '').toLowerCase());
-            container.innerHTML = `
-                <div class="space-y-3">
-                    <button onclick="showCategory()" class="text-sm font-bold text-chocolate">← Kembali ke Kategori</button>
-                    <h2 class="font-bold text-chocolate text-lg">Kategori: ${catName}</h2>
-                    <div class="grid grid-cols-2 gap-3">
-                        ${renderProductCards(filtered)}
-                    </div>
-                </div>
-            `;
+            container.innerHTML = '<div class="space-y-3">' +
+                '<button onclick="showCategory()" class="text-sm font-bold text-chocolate">← Kembali ke Kategori</button>' +
+                '<h2 class="font-bold text-chocolate text-lg">Kategori: ' + catName + '</h2>' +
+                '<div class="grid grid-cols-2 gap-3">' + renderProductCards(filtered) + '</div>' +
+            '</div>';
         }
 
         // ================= 4. KERANJANG & CHECKOUT =================
@@ -338,6 +328,7 @@
             }
             saveCartAndNotify(p.name);
         }
+
         function addToCartQty(prodId) {
             const p = products.find(item => item.id === prodId);
             if (!p) return;
@@ -350,56 +341,51 @@
             currentQty = 1;
             saveCartAndNotify(p.name);
         }
+
         function saveCartAndNotify(name) {
             localStorage.setItem('cart', JSON.stringify(cart));
-            showMessage('Keranjang', `${name} berhasil ditambahkan ke keranjang!`);
+            showMessage('Keranjang', name + ' berhasil ditambahkan ke keranjang!');
         }
+
         function showCart() {
             window.currentViewFunc = showCart;
             setActiveNav('cart');
             const container = document.getElementById('contentContainer');
             if (!cart.length) {
-                container.innerHTML = `
-                    <div class="text-center py-20 space-y-3">
-                        <span class="text-5xl">🛒</span>
-                        <p class="text-sm text-gray-500 font-bold">Keranjang belanja kamu masih kosong.</p>
-                        <button onclick="showHome()" class="px-6 py-2 bg-pink-btn text-white text-xs font-bold rounded-xl">Mulai Belanja</button>
-                    </div>
-                `;
+                container.innerHTML = '<div class="text-center py-20 space-y-3">' +
+                    '<span class="text-5xl">🛒</span>' +
+                    '<p class="text-sm text-gray-500 font-bold">Keranjang belanja kamu masih kosong.</p>' +
+                    '<button onclick="showHome()" class="px-6 py-2 bg-pink-btn text-white text-xs font-bold rounded-xl">Mulai Belanja</button>' +
+                '</div>';
                 return;
             }
             const subtotal = cart.reduce((sum, item) => sum + (item.product.price * item.quantity), 0);
-            container.innerHTML = `
-                <div class="space-y-4 pb-16">
-                    <h2 class="font-bold text-chocolate text-lg">Keranjang Saya</h2>
-                    <div class="space-y-3">
-                        ${cart.map((item, idx) => `
-                            <div class="bg-white p-3 rounded-2xl border border-orange-100 flex items-center space-x-3 shadow-sm">
-                                <img src="${item.product.image || ''}" class="w-16 h-16 object-cover rounded-xl bg-gray-100" onerror="this.src='https://via.placeholder.com/100?text=Kue'">
-                                <div class="flex-1">
-                                    <h4 class="font-bold text-chocolate text-xs line-clamp-1">${item.product.name}</h4>
-                                    <p class="text-xs text-pink-custom font-bold mt-1">${formatRupiah(item.product.price)}</p>
-                                    <div class="flex items-center space-x-2 mt-2">
-                                        <button onclick="updateCartQty(${idx}, -1)" class="w-6 h-6 bg-orange-100 rounded-md font-bold text-chocolate text-xs">−</button>
-                                        <span class="text-xs font-bold">${item.quantity}</span>
-                                        <button onclick="updateCartQty(${idx}, 1)" class="w-6 h-6 bg-orange-100 rounded-md font-bold text-chocolate text-xs">+</button>
-                                    </div>
-                                </div>
-                            </div>
-                        `).join('')}
-                    </div>
-                    <div class="bg-white p-4 rounded-2xl border border-orange-100 space-y-2 shadow-sm">
-                        <div class="flex justify-between text-sm font-bold text-chocolate">
-                            <span>Subtotal:</span>
-                            <span>${formatRupiah(subtotal)}</span>
-                        </div>
-                    </div>
-                    <button onclick="showCheckout()" class="w-full py-3 bg-pink-btn text-white font-bold text-sm rounded-xl shadow-md">
-                        Proses Checkout Pro →
-                    </button>
-                </div>
-            `;
+            container.innerHTML = '<div class="space-y-4 pb-16">' +
+                '<h2 class="font-bold text-chocolate text-lg">Keranjang Saya</h2>' +
+                '<div class="space-y-3">' +
+                    cart.map((item, idx) => '<div class="bg-white p-3 rounded-2xl border border-orange-100 flex items-center space-x-3 shadow-sm">' +
+                        '<img src="' + (item.product.image || '') + '" class="w-16 h-16 object-cover rounded-xl bg-gray-100" onerror="this.src=\'https://via.placeholder.com/100?text=Kue\'">' +
+                        '<div class="flex-1">' +
+                            '<h4 class="font-bold text-chocolate text-xs line-clamp-1">' + item.product.name + '</h4>' +
+                            '<p class="text-xs text-pink-custom font-bold mt-1">' + formatRupiah(item.product.price) + '</p>' +
+                            '<div class="flex items-center space-x-2 mt-2">' +
+                                '<button onclick="updateCartQty(' + idx + ', -1)" class="w-6 h-6 bg-orange-100 rounded-md font-bold text-chocolate text-xs">−</button>' +
+                                '<span class="text-xs font-bold">' + item.quantity + '</span>' +
+                                '<button onclick="updateCartQty(' + idx + ', 1)" class="w-6 h-6 bg-orange-100 rounded-md font-bold text-chocolate text-xs">+</button>' +
+                            '</div>' +
+                        '</div>' +
+                    '</div>').join('') +
+                '</div>' +
+                '<div class="bg-white p-4 rounded-2xl border border-orange-100 space-y-2 shadow-sm">' +
+                    '<div class="flex justify-between text-sm font-bold text-chocolate">' +
+                        '<span>Subtotal:</span>' +
+                        '<span>' + formatRupiah(subtotal) + '</span>' +
+                    '</div>' +
+                '</div>' +
+                '<button onclick="showCheckout()" class="w-full py-3 bg-pink-btn text-white font-bold text-sm rounded-xl shadow-md">Proses Checkout Pro →</button>' +
+            '</div>';
         }
+
         function updateCartQty(idx, val) {
             const stock = Number(cart[idx].product.stock) || 0;
             cart[idx].quantity = Math.min(stock, cart[idx].quantity + val);
@@ -407,6 +393,7 @@
             localStorage.setItem('cart', JSON.stringify(cart));
             showCart();
         }
+
         function showCheckout() {
             window.currentViewFunc = showCheckout;
             const container = document.getElementById('contentContainer');
@@ -417,48 +404,45 @@
             const ongkir = 15000;
             const pajak = subtotal * 0.11;
             const grandTotal = subtotal + ongkir + pajak;
-            container.innerHTML = `
-                <div class="space-y-4 pb-16">
-                    <button onclick="showCart()" class="text-sm font-bold text-chocolate">← Kembali ke Keranjang</button>
-                    <h2 class="font-bold text-chocolate text-lg">Checkout Pesanan</h2>
-                    <div class="bg-white p-4 rounded-2xl border border-orange-100 space-y-3">
-                        <h3 class="font-bold text-chocolate text-xs">Informasi Pengiriman</h3>
-                        <input type="text" id="chkName" placeholder="Nama Penerima" value="${savedName}" class="w-full p-2.5 text-xs border border-orange-200 rounded-xl">
-                        <input type="tel" id="chkPhone" placeholder="Nomor HP (Untuk Lacak Pesanan)" value="${savedPhone}" class="w-full p-2.5 text-xs border border-orange-200 rounded-xl">
-                        <textarea id="chkAddress" placeholder="Alamat Pengiriman Lengkap" class="w-full p-2.5 text-xs border border-orange-200 rounded-xl">${savedAddress}</textarea>
-                    </div>
-                    <div class="bg-white p-4 rounded-2xl border border-orange-100 space-y-3">
-                        <h3 class="font-bold text-chocolate text-xs">Kurir & Pembayaran</h3>
-                        <select id="chkCourier" class="w-full p-2.5 text-xs border border-orange-200 rounded-xl">
-                            <option>JNE Express</option><option>J&T Express</option><option>SiCepat Express</option><option>GrabExpress</option><option>GoSend</option>
-                        </select>
-                        <select id="chkPayment" onchange="togglePaymentProof(this.value)" class="w-full p-2.5 text-xs border border-orange-200 rounded-xl">
-                            <option>QRIS</option><option>BCA</option><option>COD / Bayar di Tempat</option>
-                        </select>
-                        <div id="paymentInstructions" class="text-xs text-gray-600 bg-orange-50 p-3 rounded-xl">
-                            Scan QRIS untuk pembayaran.
-                        </div>
-                        <input type="file" id="proofFile" class="w-full text-xs">
-                    </div>
-                    <div class="bg-white p-4 rounded-2xl border border-orange-100 space-y-1 text-xs">
-                        <p>Subtotal: ${formatRupiah(subtotal)}</p>
-                        <p>Ongkir: ${formatRupiah(ongkir)}</p>
-                        <p>Pajak 11%: ${formatRupiah(pajak)}</p>
-                        <hr class="my-1">
-                        <p class="font-bold text-pink-custom text-sm">Grand Total: ${formatRupiah(grandTotal)}</p>
-                    </div>
-                    <button onclick="submitOrder(${grandTotal})" class="w-full py-3 bg-pink-btn text-white font-bold text-sm rounded-xl shadow-md">
-                        Konfirmasi & Bayar Sekarang
-                    </button>
-                </div>
-            `;
+            
+            container.innerHTML = '<div class="space-y-4 pb-16">' +
+                '<button onclick="showCart()" class="text-sm font-bold text-chocolate">← Kembali ke Keranjang</button>' +
+                '<h2 class="font-bold text-chocolate text-lg">Checkout Pesanan</h2>' +
+                '<div class="bg-white p-4 rounded-2xl border border-orange-100 space-y-3">' +
+                    '<h3 class="font-bold text-chocolate text-xs">Informasi Pengiriman</h3>' +
+                    '<input type="text" id="chkName" placeholder="Nama Penerima" value="' + savedName + '" class="w-full p-2.5 text-xs border border-orange-200 rounded-xl">' +
+                    '<input type="tel" id="chkPhone" placeholder="Nomor HP (Untuk Lacak Pesanan)" value="' + savedPhone + '" class="w-full p-2.5 text-xs border border-orange-200 rounded-xl">' +
+                    '<textarea id="chkAddress" placeholder="Alamat Pengiriman Lengkap" class="w-full p-2.5 text-xs border border-orange-200 rounded-xl">' + savedAddress + '</textarea>' +
+                '</div>' +
+                '<div class="bg-white p-4 rounded-2xl border border-orange-100 space-y-3">' +
+                    '<h3 class="font-bold text-chocolate text-xs">Kurir & Pembayaran</h3>' +
+                    '<select id="chkCourier" class="w-full p-2.5 text-xs border border-orange-200 rounded-xl">' +
+                        '<option>JNE Express</option><option>J&T Express</option><option>SiCepat Express</option><option>GrabExpress</option><option>GoSend</option>' +
+                    '</select>' +
+                    '<select id="chkPayment" onchange="togglePaymentProof(this.value)" class="w-full p-2.5 text-xs border border-orange-200 rounded-xl">' +
+                        '<option>QRIS</option><option>BCA</option><option>COD / Bayar di Tempat</option>' +
+                    '</select>' +
+                    '<div id="paymentInstructions" class="text-xs text-gray-600 bg-orange-50 p-3 rounded-xl">Scan QRIS untuk pembayaran.</div>' +
+                    '<input type="file" id="proofFile" class="w-full text-xs">' +
+                '</div>' +
+                '<div class="bg-white p-4 rounded-2xl border border-orange-100 space-y-1 text-xs">' +
+                    '<p>Subtotal: ' + formatRupiah(subtotal) + '</p>' +
+                    '<p>Ongkir: ' + formatRupiah(ongkir) + '</p>' +
+                    '<p>Pajak 11%: ' + formatRupiah(pajak) + '</p>' +
+                    '<hr class="my-1">' +
+                    '<p class="font-bold text-pink-custom text-sm">Grand Total: ' + formatRupiah(grandTotal) + '</p>' +
+                '</div>' +
+                '<button onclick="submitOrder(' + grandTotal + ')" class="w-full py-3 bg-pink-btn text-white font-bold text-sm rounded-xl shadow-md">Konfirmasi & Bayar Sekarang</button>' +
+            '</div>';
         }
+
         function togglePaymentProof(method) {
             const el = document.getElementById('paymentInstructions');
             if (method === 'QRIS') el.innerText = "Scan QRIS untuk pembayaran.";
             else if (method === 'BCA') el.innerText = "Transfer ke BCA: 1109876333 a.n. Aang Cakeshop.";
             else el.innerText = "Bayar tunai saat kurir tiba (COD).";
         }
+
         async function submitOrder(grandTotal) {
             const name = document.getElementById('chkName').value;
             const phone = document.getElementById('chkPhone').value;
@@ -498,6 +482,7 @@
                 }
             });
         }
+
         function toBase64(file) {
             return new Promise((resolve, reject) => {
                 const reader = new FileReader();
@@ -512,57 +497,50 @@
             window.currentViewFunc = showPromo;
             setActiveNav('promo');
             const container = document.getElementById('contentContainer');
-            container.innerHTML = `
-                <div class="space-y-4">
-                    <h2 class="font-bold text-chocolate text-lg">Promo & Voucher Spesial</h2>
-                    ${promos.length ? promos.map(p => `
-                        <div class="bg-gradient-to-r from-pink-50 to-orange-50 border border-pink-200 rounded-2xl p-4 space-y-2">
-                            ${p.image ? `<img src="${p.image}" class="w-full h-36 object-cover rounded-xl">` : ''}
-                            <h3 class="font-bold text-chocolate text-sm">🎁 ${p.title}</h3>
-                            <p class="text-xs text-pink-custom font-bold">Diskon ${p.discount}%</p>
-                            <p class="text-[10px] text-gray-500">Berlaku: ${p.startDate} s.d ${p.endDate}</p>
-                        </div>
-                    `).join('') : '<p class="text-xs text-gray-400">Belum ada promo aktif.</p>'}
-                </div>
-            `;
+            container.innerHTML = '<div class="space-y-4">' +
+                '<h2 class="font-bold text-chocolate text-lg">Promo & Voucher Spesial</h2>' +
+                (promos.length ? promos.map(p => '<div class="bg-gradient-to-r from-pink-50 to-orange-50 border border-pink-200 rounded-2xl p-4 space-y-2">' +
+                    (p.image ? '<img src="' + p.image + '" class="w-full h-36 object-cover rounded-xl">' : '') +
+                    '<h3 class="font-bold text-chocolate text-sm">🎁 ' + p.title + '</h3>' +
+                    '<p class="text-xs text-pink-custom font-bold">Diskon ' + p.discount + '%</p>' +
+                    '<p class="text-[10px] text-gray-500">Berlaku: ' + p.startDate + ' s.d ' + p.endDate + '</p>' +
+                '</div>').join('') : '<p class="text-xs text-gray-400">Belum ada promo aktif.</p>') +
+            '</div>';
         }
+
         function showAccount() {
             window.currentViewFunc = showAccount;
             setActiveNav('account');
             const container = document.getElementById('contentContainer');
             if (isSellerLoggedIn) {
-                container.innerHTML = `
-                    <div class="space-y-3 pb-16">
-                        <div class="bg-orange-100 p-4 rounded-2xl border border-orange-200">
-                            <h3 class="font-bold text-chocolate text-sm">🏬 Seller Center (${sellerName})</h3>
-                            <p class="text-xs text-gray-600 mt-1">Kelola produk, pesanan, kategori, & promo toko Anda.</p>
-                        </div>
-                        <button onclick="showSellerDashboard()" class="w-full p-3 bg-white border border-orange-100 rounded-xl font-bold text-xs text-chocolate shadow-sm text-left">🏪 Dashboard Seller</button>
-                        <button onclick="showSellerChatList()" class="w-full p-3 bg-white border border-orange-100 rounded-xl font-bold text-xs text-chocolate shadow-sm text-left">💬 Kelola Pesan Pembeli</button>
-                        <button onclick="showManageOrders()" class="w-full p-3 bg-white border border-orange-100 rounded-xl font-bold text-xs text-chocolate shadow-sm text-left">📦 Kelola Pesanan Masuk & Label</button>
-                        <button onclick="showPOSKasir()" class="w-full p-3 bg-white border border-orange-100 rounded-xl font-bold text-xs text-chocolate shadow-sm text-left">🖥 POS Kasir Offline Pro</button>
-                        <button onclick="showManageProducts()" class="w-full p-3 bg-white border border-orange-100 rounded-xl font-bold text-xs text-chocolate shadow-sm text-left">🍰 Kelola & Tambah Produk</button>
-                        <button onclick="showManageCategories()" class="w-full p-3 bg-white border border-orange-100 rounded-xl font-bold text-xs text-chocolate shadow-sm text-left">🏷️ Kelola Kategori Toko</button>
-                        <button onclick="showManagePromos()" class="w-full p-3 bg-white border border-orange-100 rounded-xl font-bold text-xs text-chocolate shadow-sm text-left">🎁 Kelola Promo & Voucher</button>
-                        <button onclick="showShippingSettings()" class="w-full p-3 bg-white border border-orange-100 rounded-xl font-bold text-xs text-chocolate shadow-sm text-left">🚚 Pengaturan Pengiriman Toko</button>
-                        <button onclick="logoutSeller()" class="w-full p-3 bg-red-50 text-red-600 border border-red-200 rounded-xl font-bold text-xs text-left">🚪 Keluar Mode Seller</button>
-                    </div>
-                `;
+                container.innerHTML = '<div class="space-y-3 pb-16">' +
+                    '<div class="bg-orange-100 p-4 rounded-2xl border border-orange-200">' +
+                        '<h3 class="font-bold text-chocolate text-sm">🏬 Seller Center (' + sellerName + ')</h3>' +
+                        '<p class="text-xs text-gray-600 mt-1">Kelola produk, pesanan, kategori, & promo toko Anda.</p>' +
+                    '</div>' +
+                    '<button onclick="showSellerDashboard()" class="w-full p-3 bg-white border border-orange-100 rounded-xl font-bold text-xs text-chocolate shadow-sm text-left">🏪 Dashboard Seller</button>' +
+                    '<button onclick="showSellerChatList()" class="w-full p-3 bg-white border border-orange-100 rounded-xl font-bold text-xs text-chocolate shadow-sm text-left">💬 Kelola Pesan Pembeli</button>' +
+                    '<button onclick="showManageOrders()" class="w-full p-3 bg-white border border-orange-100 rounded-xl font-bold text-xs text-chocolate shadow-sm text-left">📦 Kelola Pesanan Masuk & Label</button>' +
+                    '<button onclick="showPOSKasir()" class="w-full p-3 bg-white border border-orange-100 rounded-xl font-bold text-xs text-chocolate shadow-sm text-left">🖥 POS Kasir Offline Pro</button>' +
+                    '<button onclick="showManageProducts()" class="w-full p-3 bg-white border border-orange-100 rounded-xl font-bold text-xs text-chocolate shadow-sm text-left">🍰 Kelola & Tambah Produk</button>' +
+                    '<button onclick="showManageCategories()" class="w-full p-3 bg-white border border-orange-100 rounded-xl font-bold text-xs text-chocolate shadow-sm text-left">🏷️ Kelola Kategori Toko</button>' +
+                    '<button onclick="showManagePromos()" class="w-full p-3 bg-white border border-orange-100 rounded-xl font-bold text-xs text-chocolate shadow-sm text-left">🎁 Kelola Promo & Voucher</button>' +
+                    '<button onclick="showShippingSettings()" class="w-full p-3 bg-white border border-orange-100 rounded-xl font-bold text-xs text-chocolate shadow-sm text-left">🚚 Pengaturan Pengiriman Toko</button>' +
+                    '<button onclick="logoutSeller()" class="w-full p-3 bg-red-50 text-red-600 border border-red-200 rounded-xl font-bold text-xs text-left">🚪 Keluar Mode Seller</button>' +
+                '</div>';
             } else {
-                container.innerHTML = `
-                    <div class="space-y-3 pb-16">
-                        <div class="bg-white p-4 rounded-2xl border border-orange-100 flex items-center space-x-3">
-                            <span class="text-3xl">👤</span>
-                            <div>
-                                <h3 class="font-bold text-chocolate text-sm">${isUserLoggedIn ? currentUserName : 'Tamu / Pembeli Anonym'}</h3>
-                                <p class="text-[10px] text-gray-500">${currentUserEmail || 'Belum login Google'}</p>
-                            </div>
-                        </div>
-                        <button onclick="promptSearchOrders()" class="w-full p-3 bg-white border border-orange-100 rounded-xl font-bold text-xs text-chocolate shadow-sm text-left">📦 Lacak Pesanan Saya</button>
-                        <button onclick="showFavorites()" class="w-full p-3 bg-white border border-orange-100 rounded-xl font-bold text-xs text-chocolate shadow-sm text-left">❤️ Produk Favorit Saya</button>
-                        <button onclick="showSellerLoginModal()" class="w-full p-3 bg-white border border-orange-100 rounded-xl font-bold text-xs text-chocolate shadow-sm text-left">🔐 Login Khusus Penjual (Seller)</button>
-                    </div>
-                `;
+                container.innerHTML = '<div class="space-y-3 pb-16">' +
+                    '<div class="bg-white p-4 rounded-2xl border border-orange-100 flex items-center space-x-3">' +
+                        '<span class="text-3xl">👤</span>' +
+                        '<div>' +
+                            '<h3 class="font-bold text-chocolate text-sm">' + (isUserLoggedIn ? currentUserName : 'Tamu / Pembeli Anonym') + '</h3>' +
+                            '<p class="text-[10px] text-gray-500">' + (currentUserEmail || 'Belum login Google') + '</p>' +
+                        '</div>' +
+                    '</div>' +
+                    '<button onclick="promptSearchOrders()" class="w-full p-3 bg-white border border-orange-100 rounded-xl font-bold text-xs text-chocolate shadow-sm text-left">📦 Lacak Pesanan Saya</button>' +
+                    '<button onclick="showFavorites()" class="w-full p-3 bg-white border border-orange-100 rounded-xl font-bold text-xs text-chocolate shadow-sm text-left">❤️ Produk Favorit Saya</button>' +
+                    '<button onclick="showSellerLoginModal()" class="w-full p-3 bg-white border border-orange-100 rounded-xl font-bold text-xs text-chocolate shadow-sm text-left">🔐 Login Khusus Penjual (Seller)</button>' +
+                '</div>';
             }
         }
 
@@ -590,41 +568,41 @@
                 }
             });
         }
+
         function logoutSeller() {
             isSellerLoggedIn = false;
             localStorage.removeItem('is_seller');
             showAccount();
         }
+
         function promptSearchOrders() {
             const phone = prompt("Masukkan Nomor HP / WhatsApp pemesan:");
             if (phone) showOrdersHistory(phone);
         }
+
         async function showOrdersHistory(phone) {
             window.currentViewFunc = () => showOrdersHistory(phone);
             const container = document.getElementById('contentContainer');
             try {
-                const res = await fetch(`${BASE_URL}?action=orders&phone=${encodeURIComponent(phone)}`).then(r => r.json());
+                const res = await fetch(BASE_URL + "?action=orders&phone=" + encodeURIComponent(phone)).then(r => r.json());
                 const orders = res.data || [];
-                container.innerHTML = `
-                    <div class="space-y-4 pb-16">
-                        <button onclick="showAccount()" class="text-sm font-bold text-chocolate">← Kembali</button>
-                        <h2 class="font-bold text-chocolate text-lg">Riwayat & Lacak Pesanan</h2>
-                        ${orders.length ? orders.map(o => `
-                            <div class="bg-white p-4 rounded-2xl border border-orange-100 space-y-2">
-                                <div class="flex justify-between text-xs">
-                                    <span class="font-bold text-chocolate">📦 #${o.order_id || o.orderId}</span>
-                                    <span class="text-pink-custom font-bold">${o.status || 'Diproses'}</span>
-                                </div>
-                                <p class="text-[11px] text-gray-600">Total: ${formatRupiah(o.total || o.grand_total || 0)}</p>
-                                <p class="text-[11px] text-gray-600">Kurir: ${o.courier \vert{}\vert{} '-'} \vert{} Resi:${o.awb || o.resi || 'Menunggu Resi'}</p>
-                            </div>
-                        `).join('') : '<p class="text-xs text-gray-400">Tidak ada riwayat pesanan.</p>'}
-                    </div>
-                `;
+                container.innerHTML = '<div class="space-y-4 pb-16">' +
+                    '<button onclick="showAccount()" class="text-sm font-bold text-chocolate">← Kembali</button>' +
+                    '<h2 class="font-bold text-chocolate text-lg">Riwayat & Lacak Pesanan</h2>' +
+                    (orders.length ? orders.map(o => '<div class="bg-white p-4 rounded-2xl border border-orange-100 space-y-2">' +
+                        '<div class="flex justify-between text-xs">' +
+                            '<span class="font-bold text-chocolate">📦 #' + (o.order_id || o.orderId) + '</span>' +
+                            '<span class="text-pink-custom font-bold">' + (o.status || 'Diproses') + '</span>' +
+                        '</div>' +
+                        '<p class="text-[11px] text-gray-600">Total: ' + formatRupiah(o.total || o.grand_total || 0) + '</p>' +
+                        '<p class="text-[11px] text-gray-600">Kurir: ' + (o.courier || '-') + ' | Resi:' + (o.awb || o.resi || 'Menunggu Resi') + '</p>' +
+                    '</div>').join('') : '<p class="text-xs text-gray-400">Tidak ada riwayat pesanan.</p>') +
+                '</div>';
             } catch (e) {
                 showMessage('Error', 'Gagal memuat pesanan.');
             }
         }
+
         function toggleFavorite(prodId) {
             if (favorites.includes(prodId)) {
                 favorites = favorites.filter(id => id !== prodId);
@@ -636,63 +614,63 @@
             localStorage.setItem('favs', JSON.stringify(favorites));
             if (window.currentViewFunc) window.currentViewFunc();
         }
+
         function showFavorites() {
             window.currentViewFunc = showFavorites;
             const container = document.getElementById('contentContainer');
             const favProducts = products.filter(p => favorites.includes(p.id));
-            container.innerHTML = `
-                <div class="space-y-3 pb-16">
-                    <button onclick="showAccount()" class="text-sm font-bold text-chocolate">← Kembali</button>
-                    <h2 class="font-bold text-chocolate text-lg">Produk Favorit Saya</h2>
-                    <div class="grid grid-cols-2 gap-3">
-                        ${renderProductCards(favProducts)}
-                    </div>
-                </div>
-            `;
+            container.innerHTML = '<div class="space-y-3 pb-16">' +
+                '<button onclick="showAccount()" class="text-sm font-bold text-chocolate">← Kembali</button>' +
+                '<h2 class="font-bold text-chocolate text-lg">Produk Favorit Saya</h2>' +
+                '<div class="grid grid-cols-2 gap-3">' + renderProductCards(favProducts) + '</div>' +
+            '</div>';
         }
+
         function showNotifications() {
             showMessage('Notifikasi', '💬 Pesan baru dari Chat Seller!\n📦 Pesanan sedang diproses.\n🎉 Diskon Spesial Hari Ini!');
         }
+
         function checkSellerChatAccess() {
             showChatWindow('ALL_GENERAL');
         }
+
         async function showChatWindow(prodId) {
             window.currentViewFunc = () => showChatWindow(prodId);
             const container = document.getElementById('contentContainer');
-            container.innerHTML = `
-                <div class="space-y-3 pb-20">
-                    <button onclick="showHome()" class="text-sm font-bold text-chocolate">← Kembali</button>
-                    <h2 class="font-bold text-chocolate text-lg">Ruang Chat Live</h2>
-                    <div id="chatLogs" class="bg-white p-3 rounded-2xl border border-orange-100 h-72 overflow-y-auto space-y-2 text-xs">
-                        <p class="text-gray-400">Memuat pesan...</p>
-                    </div>
-                    <div class="flex space-x-2">
-                        <input type="text" id="chatInput" placeholder="Tulis pesan..." class="flex-1 p-2.5 text-xs border border-orange-200 rounded-xl">
-                        <button onclick="sendChatMessage('${prodId}')" class="px-4 py-2.5 bg-pink-btn text-white font-bold text-xs rounded-xl">Kirim</button>
-                    </div>
-                </div>
-            `;
+            container.innerHTML = '<div class="space-y-3 pb-20">' +
+                '<button onclick="showHome()" class="text-sm font-bold text-chocolate">← Kembali</button>' +
+                '<h2 class="font-bold text-chocolate text-lg">Ruang Chat Live</h2>' +
+                '<div id="chatLogs" class="bg-white p-3 rounded-2xl border border-orange-100 h-72 overflow-y-auto space-y-2 text-xs">' +
+                    '<p class="text-gray-400">Memuat pesan...</p>' +
+                '</div>' +
+                '<div class="flex space-x-2">' +
+                    '<input type="text" id="chatInput" placeholder="Tulis pesan..." class="flex-1 p-2.5 text-xs border border-orange-200 rounded-xl">' +
+                    '<button onclick="sendChatMessage(\'' + prodId + '\')" class="px-4 py-2.5 bg-pink-btn text-white font-bold text-xs rounded-xl">Kirim</button>' +
+                '</div>' +
+            '</div>';
             loadChatMessages(prodId);
         }
+
         async function loadChatMessages(prodId) {
             const logsEl = document.getElementById('chatLogs');
             if (!logsEl) return;
             try {
                 const res = await apiGet('get_chats', { sender_id: currentUserId });
                 if (res && res.success && res.data && res.data.length > 0) {
-                    logsEl.innerHTML = res.data.map(c => `
-                        <div class="p-2 rounded-xl ${c.senderId === currentUserId ? 'bg-pink-50 text-right ml-10' : 'bg-orange-50 mr-10'}">
-                            <p class="text-[10px] font-bold text-gray-500">${safeText(c.senderName)}</p>
-                            <p class="text-xs text-chocolate">${safeText(c.message)}</p>
-                        </div>
-                    `).join('');
+                    logsEl.innerHTML = res.data.map(c => 
+                        '<div class="p-2 rounded-xl ' + (c.senderId === currentUserId ? 'bg-pink-50 text-right ml-10' : 'bg-orange-50 mr-10') + '">' +
+                            '<p class="text-[10px] font-bold text-gray-500">' + safeText(c.senderName) + '</p>' +
+                            '<p class="text-xs text-chocolate">' + safeText(c.message) + '</p>' +
+                        '</div>'
+                    ).join('');
                 } else {
-                    logsEl.innerHTML = `<p class="text-xs text-gray-400 text-center">Belum ada percakapan.</p>`;
+                    logsEl.innerHTML = '<p class="text-xs text-gray-400 text-center">Belum ada percakapan.</p>';
                 }
             } catch (e) {
-                logsEl.innerHTML = `<p class="text-xs text-gray-400 text-center">Gagal memuat riwayat chat.</p>`;
+                logsEl.innerHTML = '<p class="text-xs text-gray-400 text-center">Gagal memuat riwayat chat.</p>';
             }
         }
+
         function sendChatMessage(prodId) {
             const input = document.getElementById('chatInput');
             const msg = input.value.trim();
@@ -714,23 +692,25 @@
         // ================= SELLER CENTER: API HELPER =================
         async function apiGet(action, params = {}) {
             const query = new URLSearchParams({ action, ...params });
-            const response = await fetch(`${BASE_URL}?${query.toString()}`, { cache: 'no-store' });
-            if (!response.ok) throw new Error(`Server mengembalikan HTTP ${response.status}`);
+            const response = await fetch(BASE_URL + '?' + query.toString(), { cache: 'no-store' });
+            if (!response.ok) throw new Error('Server mengembalikan HTTP ' + response.status);
             const result = await response.json();
             if (result && result.success === false) throw new Error(result.message || 'Permintaan gagal.');
             return result;
         }
+
         async function apiPost(action, data = {}) {
             const response = await fetch(BASE_URL, {
                 method: 'POST',
                 headers: { 'Content-Type': 'text/plain;charset=utf-8' },
                 body: JSON.stringify({ action, ...data })
             });
-            if (!response.ok) throw new Error(`Server mengembalikan HTTP ${response.status}`);
+            if (!response.ok) throw new Error('Server mengembalikan HTTP ' + response.status);
             const result = await response.json();
             if (result && result.success === false) throw new Error(result.message || 'Permintaan gagal.');
             return result;
         }
+
         function requireSeller() {
             if (!isSellerLoggedIn) {
                 showMessage('Akses Seller', 'Silakan login sebagai seller terlebih dahulu.');
@@ -739,32 +719,36 @@
             }
             return true;
         }
+
         function safeText(value) {
             return String(value == null ? '' : value).replace(/[&<>"']/g, ch => ({
                 '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
             }[ch]));
         }
+
         function sellerPage(title, body, back = 'showAccount()') {
             const container = document.getElementById('contentContainer');
             window.currentViewFunc = showAccount;
-            container.innerHTML = `
-                <div class="space-y-4 pb-20">
-                    <button onclick="${back}" class="px-3 py-2 rounded-xl bg-white border border-orange-200 text-xs font-bold text-chocolate">← Kembali ke Seller Center</button>
-                    <div class="bg-gradient-to-r from-pink-100 to-orange-100 border border-pink-200 rounded-2xl p-4">
-                        <h2 class="text-lg font-extrabold text-chocolate">${title}</h2>
-                        <p class="text-xs text-gray-600 mt-1">Aang Cakeshop · Seller Center</p>
-                    </div>
-                    ${body}
-                </div>`;
+            container.innerHTML = '<div class="space-y-4 pb-20">' +
+                '<button onclick="' + back + '" class="px-3 py-2 rounded-xl bg-white border border-orange-200 text-xs font-bold text-chocolate">← Kembali ke Seller Center</button>' +
+                '<div class="bg-gradient-to-r from-pink-100 to-orange-100 border border-pink-200 rounded-2xl p-4">' +
+                    '<h2 class="text-lg font-extrabold text-chocolate">' + title + '</h2>' +
+                    '<p class="text-xs text-gray-600 mt-1">Aang Cakeshop · Seller Center</p>' +
+                '</div>' +
+                body +
+            '</div>';
         }
+
         function sellerField(label, name, value = '', type = 'text', placeholder = '') {
-            return `<label class="block space-y-1"><span class="text-xs font-bold text-chocolate">${label}</span>
-                <input name="${name}" value="${safeText(value)}" type="${type}" placeholder="${safeText(placeholder)}"
-                class="w-full p-3 rounded-xl border border-orange-200 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-pink-200"></label>`;
+            return '<label class="block space-y-1"><span class="text-xs font-bold text-chocolate">' + label + '</span>' +
+                '<input name="' + name + '" value="' + safeText(value) + '" type="' + type + '" placeholder="' + safeText(placeholder) + '"' +
+                ' class="w-full p-3 rounded-xl border border-orange-200 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-pink-200"></label>';
         }
+
         function sellerButton(label, onclick, extra = '') {
-            return `<button type="button" onclick="${onclick}" class="px-4 py-3 rounded-xl bg-pink-btn text-white font-bold text-xs ${extra}">${label}</button>`;
+            return '<button type="button" onclick="' + onclick + '" class="px-4 py-3 rounded-xl bg-pink-btn text-white font-bold text-xs ' + extra + '">' + label + '</button>';
         }
+
         function readFileAsDataURL(file) {
             return new Promise((resolve, reject) => {
                 const reader = new FileReader();
@@ -778,18 +762,19 @@
         async function showSellerDashboard() {
             if (!requireSeller()) return;
             window.currentViewFunc = showSellerDashboard;
-            sellerPage('Dashboard Seller', `<div id="sellerDashboardStats" class="grid grid-cols-2 gap-3">
-                <div class="bg-white p-4 rounded-2xl border border-orange-100"><p class="text-xs text-gray-500">Produk</p><p class="text-2xl font-extrabold text-chocolate">${products.length}</p></div>
-                <div class="bg-white p-4 rounded-2xl border border-orange-100"><p class="text-xs text-gray-500">Kategori</p><p class="text-2xl font-extrabold text-chocolate">${categories.length}</p></div>
-                <div class="bg-white p-4 rounded-2xl border border-orange-100"><p class="text-xs text-gray-500">Promo</p><p class="text-2xl font-extrabold text-chocolate">${promos.length}</p></div>
-                <div class="bg-white p-4 rounded-2xl border border-orange-100"><p class="text-xs text-gray-500">Penjualan hari ini</p><p id="todaySalesValue" class="text-lg font-extrabold text-pink-custom">Memuat...</p></div>
-                </div>
-                <div class="space-y-2 mt-4">
-                    ${sellerButton('💬 Kelola Chat Pembeli', 'showSellerChatList()', 'w-full')}
-                    ${sellerButton('📦 Kelola Pesanan', 'showManageOrders()', 'w-full')}
-                    ${sellerButton('🍰 Kelola Produk', 'showManageProducts()', 'w-full')}
-                    ${sellerButton('🖥 Buka POS Kasir', 'showPOSKasir()', 'w-full')}
-                </div>`);
+            sellerPage('Dashboard Seller', '<div id="sellerDashboardStats" class="grid grid-cols-2 gap-3">' +
+                '<div class="bg-white p-4 rounded-2xl border border-orange-100"><p class="text-xs text-gray-500">Produk</p><p class="text-2xl font-extrabold text-chocolate">' + products.length + '</p></div>' +
+                '<div class="bg-white p-4 rounded-2xl border border-orange-100"><p class="text-xs text-gray-500">Kategori</p><p class="text-2xl font-extrabold text-chocolate">' + categories.length + '</p></div>' +
+                '<div class="bg-white p-4 rounded-2xl border border-orange-100"><p class="text-xs text-gray-500">Promo</p><p class="text-2xl font-extrabold text-chocolate">' + promos.length + '</p></div>' +
+                '<div class="bg-white p-4 rounded-2xl border border-orange-100"><p class="text-xs text-gray-500">Penjualan hari ini</p><p id="todaySalesValue" class="text-lg font-extrabold text-pink-custom">Memuat...</p></div>' +
+            '</div>' +
+            '<div class="space-y-2 mt-4">' +
+                sellerButton('💬 Kelola Chat Pembeli', 'showSellerChatList()', 'w-full') +
+                sellerButton('📦 Kelola Pesanan', 'showManageOrders()', 'w-full') +
+                sellerButton('🍰 Kelola Produk', 'showManageProducts()', 'w-full') +
+                sellerButton('🖥 Buka POS Kasir', 'showPOSKasir()', 'w-full') +
+            '</div>');
+            
             try {
                 const result = await apiGet('today_sales');
                 const el = document.getElementById('todaySalesValue');
@@ -820,44 +805,43 @@
                     const date = o.created_at || o.date || '-';
                     const total = o.total || o.grand_total || o.total_price || 0;
                     const proof = o.proof_url || o.proofUrl || '';
-                    return `<article class="bg-white p-4 rounded-2xl border border-orange-100 space-y-3">
-                        <div class="flex justify-between gap-2"><strong class="text-sm text-chocolate">📦 #${safeText(id)} (${safeText(status)})</strong></div>
-                        <p class="text-xs text-gray-600">📅 ${safeText(date)}<br>👤 ${safeText(customer)}<br>📍 ${safeText(address)}<br>💰 ${formatRupiah(total)}<br>🚚 ${safeText(courier)}<br>Resi: ${safeText(resi || 'Belum diinput')}</p>
-                        ${proof ? `<a href="${safeText(proof)}" target="_blank" rel="noopener" class="text-xs font-bold text-pink-custom underline">Lihat bukti pembayaran</a>` : '<p class="text-xs text-gray-400">Bukti bayar tidak tersedia / COD.</p>'}
-                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                            <label class="text-xs text-gray-600">Status pesanan
-                                <select id="orderStatus_${index}" class="w-full mt-1 p-2 rounded-lg border border-orange-200 text-xs">
-                                    ${['Menunggu Pembayaran','Diproses','Dikemas','Dikirim','Selesai','Dibatalkan'].map(s => `<option ${s === status ? 'selected' : ''}>${s}</option>`).join('')}
-                                </select>
-                            </label>
-                            <label class="text-xs text-gray-600">Nomor resi
-                                <input id="orderResi_${index}" value="${safeText(resi)}" placeholder="Masukkan nomor resi" class="w-full mt-1 p-2 rounded-lg border border-orange-200 text-xs">
-                            </label>
-                        </div>
-                        <div class="flex flex-wrap gap-2">
-                            ${sellerButton('Simpan Status', `saveOrderStatus('${safeText(id)}',${index})`)}
-                            ${sellerButton('Simpan Resi & Tandai Dikirim', `saveOrderResi('${safeText(id)}',${index})`)}
-                            <button onclick="printShippingLabelByIndex(${index})" class="px-4 py-3 rounded-xl bg-white border border-orange-200 text-chocolate font-bold text-xs">🖨 Cetak Label</button>
-                        </div>
-                    </article>`;
+                    return '<article class="bg-white p-4 rounded-2xl border border-orange-100 space-y-3">' +
+                        '<div class="flex justify-between gap-2"><strong class="text-sm text-chocolate">📦 #' + safeText(id) + ' (' + safeText(status) + ')</strong></div>' +
+                        '<p class="text-xs text-gray-600">📅 ' + safeText(date) + '<br>👤 ' + safeText(customer) + '<br>📍 ' + safeText(address) + '<br>💰 ' + formatRupiah(total) + '<br>🚚 ' + safeText(courier) + '<br>Resi: ' + safeText(resi || 'Belum diinput') + '</p>' +
+                        (proof ? '<a href="' + safeText(proof) + '" target="_blank" rel="noopener" class="text-xs font-bold text-pink-custom underline">Lihat bukti pembayaran</a>' : '<p class="text-xs text-gray-400">Bukti bayar tidak tersedia / COD.</p>') +
+                        '<div class="grid grid-cols-1 sm:grid-cols-2 gap-2">' +
+                            '<label class="text-xs text-gray-600">Status pesanan' +
+                                '<select id="orderStatus_' + index + '" class="w-full mt-1 p-2 rounded-lg border border-orange-200 text-xs">' +
+                                    ['Menunggu Pembayaran','Diproses','Dikemas','Dikirim','Selesai','Dibatalkan'].map(s => '<option ' + (s === status ? 'selected' : '') + '>' + s + '</option>').join('') +
+                                '</select>' +
+                            '</label>' +
+                            '<label class="text-xs text-gray-600">Nomor resi' +
+                                '<input id="orderResi_' + index + '" value="' + safeText(resi) + '" placeholder="Masukkan nomor resi" class="w-full mt-1 p-2 rounded-lg border border-orange-200 text-xs">' +
+                            '</label>' +
+                        '</div>' +
+                        '<div class="flex flex-wrap gap-2">' +
+                            sellerButton('Simpan Status', 'saveOrderStatus(\'' + safeText(id) + '\',' + index + ')') +
+                            sellerButton('Simpan Resi & Tandai Dikirim', 'saveOrderResi(\'' + safeText(id) + '\',' + index + ')') +
+                            '<button onclick="printShippingLabelByIndex(' + index + ')" class="px-4 py-3 rounded-xl bg-white border border-orange-200 text-chocolate font-bold text-xs">🖨 Cetak Label</button>' +
+                        '</div>' +
+                    '</article>';
                 }).join('') : '<div class="bg-white rounded-2xl p-6 text-center text-sm text-gray-500 border border-orange-100">Belum ada pesanan masuk.</div>';
                 
-                container.innerHTML = `
-                    <div class="space-y-4 pb-20">
-                        <button onclick="showAccount()" class="px-3 py-2 rounded-xl bg-white border border-orange-200 text-xs font-bold text-chocolate">← Kembali ke Seller Center</button>
-                        <div class="bg-gradient-to-r from-pink-100 to-orange-100 border border-pink-200 rounded-2xl p-4">
-                            <h2 class="text-lg font-extrabold text-chocolate">Kelola Pesanan Masuk & Label</h2>
-                        </div>
-                        ${body}
-                        <button onclick="showManageOrders()" class="w-full py-3 rounded-xl bg-white border border-orange-200 text-xs font-bold text-chocolate">↻ Muat Ulang Pesanan</button>
-                    </div>
-                `;
+                container.innerHTML = '<div class="space-y-4 pb-20">' +
+                    '<button onclick="showAccount()" class="px-3 py-2 rounded-xl bg-white border border-orange-200 text-xs font-bold text-chocolate">← Kembali ke Seller Center</button>' +
+                    '<div class="bg-gradient-to-r from-pink-100 to-orange-100 border border-pink-200 rounded-2xl p-4">' +
+                        '<h2 class="text-lg font-extrabold text-chocolate">Kelola Pesanan Masuk & Label</h2>' +
+                    '</div>' +
+                    body +
+                    '<button onclick="showManageOrders()" class="w-full py-3 rounded-xl bg-white border border-orange-200 text-xs font-bold text-chocolate">↻ Muat Ulang Pesanan</button>' +
+                '</div>';
             } catch (error) {
-                container.innerHTML = `<div class="space-y-3"><button onclick="showAccount()" class="text-xs font-bold text-chocolate">← Kembali</button><h2 class="font-bold text-chocolate">Kelola Pesanan</h2><p class="p-3 rounded-xl bg-red-50 text-red-700 text-xs">${safeText(error.message)}</p><button onclick="showManageOrders()" class="px-4 py-3 bg-pink-btn text-white rounded-xl text-xs font-bold">Coba Lagi</button></div>`;
+                container.innerHTML = '<div class="space-y-3"><button onclick="showAccount()" class="text-xs font-bold text-chocolate">← Kembali</button><h2 class="font-bold text-chocolate">Kelola Pesanan</h2><p class="p-3 rounded-xl bg-red-50 text-red-700 text-xs">' + safeText(error.message) + '</p><button onclick="showManageOrders()" class="px-4 py-3 bg-pink-btn text-white rounded-xl text-xs font-bold">Coba Lagi</button></div>';
             }
         }
+
         async function saveOrderStatus(orderId, index) {
-            const status = document.getElementById(`orderStatus_${index}`)?.value;
+            const status = document.getElementById('orderStatus_' + index)?.value;
             if (!status) return;
             try {
                 const res = await apiPost('update_order_status', { order_id: orderId, status });
@@ -865,8 +849,9 @@
                 showManageOrders();
             } catch (error) { showMessage('Gagal menyimpan status', error.message); }
         }
+
         async function saveOrderResi(orderId, index) {
-            const resi = document.getElementById(`orderResi_${index}`)?.value.trim();
+            const resi = document.getElementById('orderResi_' + index)?.value.trim();
             if (!resi) return showMessage('Nomor Resi', 'Masukkan nomor resi terlebih dahulu.');
             try {
                 const res = await apiPost('update_order_resi', { order_id: orderId, resi });
@@ -874,6 +859,7 @@
                 showManageOrders();
             } catch (error) { showMessage('Gagal menyimpan resi', error.message); }
         }
+
         function printShippingLabelByIndex(index) {
             const o = (window.currentSellerOrders || [])[index];
             if (!o) return showMessage('Cetak Label', 'Data pesanan tidak ditemukan.');
@@ -885,16 +871,17 @@
                 total: Number(o.total || o.grand_total || o.total_price) || 0
             });
         }
+
         function printShippingLabel(order) {
             const popup = window.open('', '_blank', 'width=500,height=700');
             if (!popup) return showMessage('Cetak Label', 'Izinkan pop-up browser untuk mencetak label.');
-            popup.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>Label ${safeText(order.id)}</title>
-                <style>body{font:14px Arial;padding:24px;color:#111}.label{border:2px dashed #333;padding:18px;max-width:420px}h2{text-align:center}p{line-height:1.5;overflow-wrap:anywhere}</style></head><body>
-                <div class="label"><h2>LABEL PENGIRIMAN PAKET<br>AANG CAKESHOP</h2><hr>
-                <p><b>No. Pesanan:</b> ${safeText(order.id)}</p><p><b>Penerima:</b> ${safeText(order.customer)}</p>
-                <p><b>Alamat:</b> ${safeText(order.address)}</p><p><b>Kurir:</b> ${safeText(order.courier)}</p>
-                <p><b>Total / COD:</b> ${formatRupiah(order.total)}</p><hr><p>Harap tangani dengan hati-hati — produk kue mudah rusak.</p></div>
-                <script>window.onload=()=>window.print()<\/script></body></html>`);
+            popup.document.write('<!doctype html><html><head><meta charset="utf-8"><title>Label ' + safeText(order.id) + '</title>' +
+                '<style>body{font:14px Arial;padding:24px;color:#111}.label{border:2px dashed #333;padding:18px;max-width:420px}h2{text-align:center}p{line-height:1.5;overflow-wrap:anywhere}</style></head><body>' +
+                '<div class="label"><h2>LABEL PENGIRIMAN PAKET<br>AANG CAKESHOP</h2><hr>' +
+                '<p><b>No. Pesanan:</b> ' + safeText(order.id) + '</p><p><b>Penerima:</b> ' + safeText(order.customer) + '</p>' +
+                '<p><b>Alamat:</b> ' + safeText(order.address) + '</p><p><b>Kurir:</b> ' + safeText(order.courier) + '</p>' +
+                '<p><b>Total / COD:</b> ' + formatRupiah(order.total) + '</p><hr><p>Harap tangani dengan hati-hati — produk kue mudah rusak.</p></div>' +
+                '<script>window.onload=()=>window.print()<\/script></body></html>');
             popup.document.close();
         }
 
@@ -903,51 +890,53 @@
             if (!requireSeller()) return;
             await refreshSellerData();
             window.currentViewFunc = showManageProducts;
-            const cards = products.length ? products.map(p => `<article class="bg-white p-3 rounded-2xl border border-orange-100 flex gap-3 items-start">
-                <img src="${safeText(p.image || (p.images && p.images[0]) || '')}" onerror="this.style.display='none'" class="w-20 h-20 object-cover rounded-xl bg-orange-50">
-                <div class="flex-1 min-w-0">
-                    <h3 class="font-bold text-sm text-chocolate">${safeText(p.name)}</h3>
-                    <p class="text-xs text-gray-500 mt-1">${safeText(p.category)} · Stok ${Number(p.stock)||0}</p>
-                    <p class="text-sm font-extrabold text-pink-custom mt-1">${formatRupiah(p.price)}</p>
-                    <p class="text-xs text-gray-500 mt-1">${safeText(p.description || '')}</p>
-                    <div class="flex flex-wrap gap-2 mt-2">
-                        <button onclick="showProductForm('${safeText(p.id)}')" class="px-3 py-2 rounded-lg bg-orange-50 text-chocolate text-xs font-bold">✏️ Edit</button>
-                        <button onclick="deleteSellerProduct('${safeText(p.id)}')" class="px-3 py-2 rounded-lg bg-red-50 text-red-600 text-xs font-bold">🗑 Hapus</button>
-                    </div>
-                </div>
-            </article>`).join('') : '<div class="p-5 rounded-xl bg-white border border-orange-100 text-sm text-gray-500 text-center">Belum ada produk. Tambahkan produk pertama Anda.</div>';
+            const cards = products.length ? products.map(p => '<article class="bg-white p-3 rounded-2xl border border-orange-100 flex gap-3 items-start">' +
+                '<img src="' + safeText(p.image || (p.images && p.images[0]) || '') + '" onerror="this.style.display=\'none\'" class="w-20 h-20 object-cover rounded-xl bg-orange-50">' +
+                '<div class="flex-1 min-w-0">' +
+                    '<h3 class="font-bold text-sm text-chocolate">' + safeText(p.name) + '</h3>' +
+                    '<p class="text-xs text-gray-500 mt-1">' + safeText(p.category) + ' · Stok ' + (Number(p.stock)||0) + '</p>' +
+                    '<p class="text-sm font-extrabold text-pink-custom mt-1">' + formatRupiah(p.price) + '</p>' +
+                    '<p class="text-xs text-gray-500 mt-1">' + safeText(p.description || '') + '</p>' +
+                    '<div class="flex flex-wrap gap-2 mt-2">' +
+                        '<button onclick="showProductForm(\'' + safeText(p.id) + '\')" class="px-3 py-2 rounded-lg bg-orange-50 text-chocolate text-xs font-bold">✏️ Edit</button>' +
+                        '<button onclick="deleteSellerProduct(\'' + safeText(p.id) + '\')" class="px-3 py-2 rounded-lg bg-red-50 text-red-600 text-xs font-bold">🗑 Hapus</button>' +
+                    '</div>' +
+                '</div>' +
+            '</article>').join('') : '<div class="p-5 rounded-xl bg-white border border-orange-100 text-sm text-gray-500 text-center">Belum ada produk. Tambahkan produk pertama Anda.</div>';
             
-            sellerPage('Kelola & Tambah Produk', `
-                ${sellerButton('➕ Tambah Produk Baru', "showProductForm('')", 'w-full')}
-                <div class="space-y-3 mt-3">${cards}</div>
-            `);
+            sellerPage('Kelola & Tambah Produk', 
+                sellerButton('➕ Tambah Produk Baru', "showProductForm('')", 'w-full') +
+                '<div class="space-y-3 mt-3">' + cards + '</div>'
+            );
         }
+
         async function refreshSellerData() {
             const [p, c, pr] = await Promise.all([apiGet('products'), apiGet('categories'), apiGet('promos')]);
             if (p.success) products = p.data || [];
             if (c.success) categories = c.data || [];
             if (pr.success) promos = pr.data || [];
         }
+
         async function showProductForm(productId = '') {
             if (!requireSeller()) return;
             const product = products.find(p => String(p.id) === String(productId));
             const cats = categories.length ? categories : getDefaultCategories();
-            const categoryOptions = cats.map(c => `<option value="${safeText(c.name)}" ${product && product.category === c.name ? 'selected' : ''}>${safeText(c.name)}</option>`).join('');
+            const categoryOptions = cats.map(c => '<option value="' + safeText(c.name) + '" ' + (product && product.category === c.name ? 'selected' : '') + '>' + safeText(c.name) + '</option>').join('');
             const oldImages = product ? (product.images && product.images.length ? product.images : [product.image]).filter(Boolean) : [];
             
-            sellerPage(product ? 'Edit Produk Kue' : 'Tambah Produk Kue Baru', `
-                <form id="sellerProductForm" class="bg-white p-4 rounded-2xl border border-orange-100 space-y-3">
-                    ${product ? `<input type="hidden" name="id" value="${safeText(product.id)}">` : ''}
-                    ${sellerField('Nama Produk', 'name', product?.name || '', 'text', 'Contoh: Birthday Cake')}
-                    <label class="block space-y-1"><span class="text-xs font-bold text-chocolate">Kategori</span><select name="category" class="w-full p-3 rounded-xl border border-orange-200 bg-white text-sm">${categoryOptions}<option value="Lainnya" ${product && product.category === 'Lainnya' ? 'selected' : ''}>Lainnya</option></select></label>
-                    ${sellerField('Harga (Rp)', 'price', product?.price ?? '', 'number', '150000')}
-                    ${sellerField('Stok', 'stock', product?.stock ?? '0', 'number', '0')}
-                    <label class="block space-y-1"><span class="text-xs font-bold text-chocolate">Deskripsi</span><textarea name="description" rows="4" class="w-full p-3 rounded-xl border border-orange-200 text-sm">${safeText(product?.description || '')}</textarea></label>
-                    <div><label class="block text-xs font-bold text-chocolate mb-1">Foto produk (bisa pilih beberapa)</label><input id="sellerProductImages" type="file" accept="image/*" multiple class="w-full text-xs"><p class="text-[10px] text-gray-500 mt-1">Foto baru akan ditambahkan ke foto lama saat edit.</p>
-                    ${oldImages.length ? `<div class="flex gap-2 overflow-x-auto mt-2">${oldImages.map(img => `<img src="${safeText(img)}" class="w-16 h-16 object-cover rounded-lg">`).join('')}</div>` : ''}</div>
-                    <button class="w-full py-3 rounded-xl bg-pink-btn text-white font-bold text-sm" type="submit">💾 Simpan Produk</button>
-                    <button class="w-full py-3 rounded-xl bg-white border border-orange-200 text-chocolate font-bold text-sm" type="button" onclick="showManageProducts()">Batal</button>
-                </form>`);
+            sellerPage(product ? 'Edit Produk Kue' : 'Tambah Produk Kue Baru', 
+                '<form id="sellerProductForm" class="bg-white p-4 rounded-2xl border border-orange-100 space-y-3">' +
+                    (product ? '<input type="hidden" name="id" value="' + safeText(product.id) + '">' : '') +
+                    sellerField('Nama Produk', 'name', product?.name || '', 'text', 'Contoh: Birthday Cake') +
+                    '<label class="block space-y-1"><span class="text-xs font-bold text-chocolate">Kategori</span><select name="category" class="w-full p-3 rounded-xl border border-orange-200 bg-white text-sm">' + categoryOptions + '<option value="Lainnya" ' + (product && product.category === 'Lainnya' ? 'selected' : '') + '>Lainnya</option></select></label>' +
+                    sellerField('Harga (Rp)', 'price', product?.price ?? '', 'number', '150000') +
+                    sellerField('Stok', 'stock', product?.stock ?? '0', 'number', '0') +
+                    '<label class="block space-y-1"><span class="text-xs font-bold text-chocolate">Deskripsi</span><textarea name="description" rows="4" class="w-full p-3 rounded-xl border border-orange-200 text-sm">' + safeText(product?.description || '') + '</textarea></label>' +
+                    '<div><label class="block text-xs font-bold text-chocolate mb-1">Foto produk (bisa pilih beberapa)</label><input id="sellerProductImages" type="file" accept="image/*" multiple class="w-full text-xs"><p class="text-[10px] text-gray-500 mt-1">Foto baru akan ditambahkan ke foto lama saat edit.</p>' +
+                    (oldImages.length ? '<div class="flex gap-2 overflow-x-auto mt-2">' + oldImages.map(img => '<img src="' + safeText(img) + '" class="w-16 h-16 object-cover rounded-lg">').join('') + '</div>' : '') + '</div>' +
+                    '<button class="w-full py-3 rounded-xl bg-pink-btn text-white font-bold text-sm" type="submit">💾 Simpan Produk</button>' +
+                    '<button class="w-full py-3 rounded-xl bg-white border border-orange-200 text-chocolate font-bold text-sm" type="button" onclick="showManageProducts()">Batal</button>' +
+                '</form>');
             
             document.getElementById('sellerProductForm').addEventListener('submit', async (event) => {
                 event.preventDefault();
@@ -974,6 +963,7 @@
                 } catch (error) { showMessage('Gagal menyimpan produk', error.message); }
             });
         }
+
         async function deleteSellerProduct(id) {
             if (!confirm('Yakin ingin menghapus produk ini?')) return;
             try {
@@ -989,21 +979,22 @@
             if (!requireSeller()) return;
             await refreshSellerData();
             window.currentViewFunc = showManageCategories;
-            const rows = categories.length ? categories.map(c => `<div class="bg-white p-3 rounded-xl border border-orange-100 flex items-center gap-3">
-                <span class="text-2xl">${safeText(c.icon||'🍰')}</span>
-                <div class="flex-1">
-                    <p class="font-bold text-sm text-chocolate">${safeText(c.name)}</p>
-                    <p class="text-[10px] text-gray-500">${safeText(c.id)}</p>
-                </div>
-                <button onclick="editSellerCategory('${safeText(c.id)}')" class="px-3 py-2 bg-orange-50 rounded-lg text-xs font-bold text-chocolate">Edit</button>
-                <button onclick="deleteSellerCategory('${safeText(c.id)}')" class="px-3 py-2 bg-red-50 rounded-lg text-xs font-bold text-red-600">Hapus</button>
-            </div>`).join('') : '<p class="text-xs text-gray-500">Belum ada kategori.</p>';
+            const rows = categories.length ? categories.map(c => '<div class="bg-white p-3 rounded-xl border border-orange-100 flex items-center gap-3">' +
+                '<span class="text-2xl">' + safeText(c.icon||'🍰') + '</span>' +
+                '<div class="flex-1">' +
+                    '<p class="font-bold text-sm text-chocolate">' + safeText(c.name) + '</p>' +
+                    '<p class="text-[10px] text-gray-500">' + safeText(c.id) + '</p>' +
+                '</div>' +
+                '<button onclick="editSellerCategory(\'' + safeText(c.id) + '\')" class="px-3 py-2 bg-orange-50 rounded-lg text-xs font-bold text-chocolate">Edit</button>' +
+                '<button onclick="deleteSellerCategory(\'' + safeText(c.id) + '\')" class="px-3 py-2 bg-red-50 rounded-lg text-xs font-bold text-red-600">Hapus</button>' +
+            '</div>').join('') : '<p class="text-xs text-gray-500">Belum ada kategori.</p>';
             
-            sellerPage('Kelola Kategori Toko', `
-                ${sellerButton('➕ Tambah Kategori', "editSellerCategory('')", 'w-full')}
-                <div class="space-y-2 mt-3">${rows}</div>
-            `);
+            sellerPage('Kelola Kategori Toko', 
+                sellerButton('➕ Tambah Kategori', "editSellerCategory('')", 'w-full') +
+                '<div class="space-y-2 mt-3">' + rows + '</div>'
+            );
         }
+
         async function editSellerCategory(id) {
             const item = categories.find(c => String(c.id) === String(id));
             const name = prompt('Nama kategori:', item?.name || '');
@@ -1017,6 +1008,7 @@
                 showManageCategories();
             } catch (error) { showMessage('Gagal menyimpan kategori', error.message); }
         }
+
         async function deleteSellerCategory(id) {
             if (!confirm('Yakin ingin menghapus kategori ini?')) return;
             try {
@@ -1032,25 +1024,26 @@
             if (!requireSeller()) return;
             await refreshSellerData();
             window.currentViewFunc = showManagePromos;
-            const rows = promos.length ? promos.map(p => `<article class="bg-white p-3 rounded-xl border border-orange-100 flex gap-3">
-                ${p.image ? `<img src="${safeText(p.image)}" class="w-20 h-20 object-cover rounded-xl">` : '<div class="w-20 h-20 bg-orange-50 rounded-xl flex items-center justify-center text-2xl">🎁</div>'}
-                <div class="flex-1">
-                    <h3 class="font-bold text-sm text-chocolate">${safeText(p.title)}</h3>
-                    <p class="text-xs text-pink-custom font-bold">Diskon ${Number(p.discount)||0}%</p>
-                    <p class="text-[10px] text-gray-500">${safeText(p.startDate || '-')} s.d. ${safeText(p.endDate || '-')}</p>
-                    <p class="text-[10px] text-gray-500">Produk: ${safeText(p.productId || 'ALL')}</p>
-                    <div class="flex gap-2 mt-2">
-                        <button onclick="editSellerPromo('${safeText(p.id)}')" class="px-3 py-2 bg-orange-50 rounded-lg text-xs font-bold">Edit</button>
-                        <button onclick="deleteSellerPromo('${safeText(p.id)}')" class="px-3 py-2 bg-red-50 rounded-lg text-xs font-bold text-red-600">Hapus</button>
-                    </div>
-                </div>
-            </article>`).join('') : '<p class="bg-white p-4 rounded-xl text-xs text-gray-500">Belum ada promo.</p>';
+            const rows = promos.length ? promos.map(p => '<article class="bg-white p-3 rounded-xl border border-orange-100 flex gap-3">' +
+                (p.image ? '<img src="' + safeText(p.image) + '" class="w-20 h-20 object-cover rounded-xl">' : '<div class="w-20 h-20 bg-orange-50 rounded-xl flex items-center justify-center text-2xl">🎁</div>') +
+                '<div class="flex-1">' +
+                    '<h3 class="font-bold text-sm text-chocolate">' + safeText(p.title) + '</h3>' +
+                    '<p class="text-xs text-pink-custom font-bold">Diskon ' + (Number(p.discount)||0) + '%</p>' +
+                    '<p class="text-[10px] text-gray-500">' + safeText(p.startDate || '-') + ' s.d. ' + safeText(p.endDate || '-') + '</p>' +
+                    '<p class="text-[10px] text-gray-500">Produk: ' + safeText(p.productId || 'ALL') + '</p>' +
+                    '<div class="flex gap-2 mt-2">' +
+                        '<button onclick="editSellerPromo(\'' + safeText(p.id) + '\')" class="px-3 py-2 bg-orange-50 rounded-lg text-xs font-bold">Edit</button>' +
+                        '<button onclick="deleteSellerPromo(\'' + safeText(p.id) + '\')" class="px-3 py-2 bg-red-50 rounded-lg text-xs font-bold text-red-600">Hapus</button>' +
+                    '</div>' +
+                '</div>' +
+            '</article>').join('') : '<p class="bg-white p-4 rounded-xl text-xs text-gray-500">Belum ada promo.</p>';
             
-            sellerPage('Kelola Promo & Voucher', `
-                ${sellerButton('➕ Buat Promo Baru', "editSellerPromo('')", 'w-full')}
-                <div class="space-y-3 mt-3">${rows}</div>
-            `);
+            sellerPage('Kelola Promo & Voucher', 
+                sellerButton('➕ Buat Promo Baru', "editSellerPromo('')", 'w-full') +
+                '<div class="space-y-3 mt-3">' + rows + '</div>'
+            );
         }
+
         async function editSellerPromo(id) {
             const item = promos.find(p => String(p.id) === String(id));
             const title = prompt('Judul promo:', item?.title || '');
@@ -1087,6 +1080,7 @@
                 } catch (error) { showMessage('Gagal menyimpan promo', error.message); }
             };
         }
+
         async function deleteSellerPromo(id) {
             if (!confirm('Yakin ingin menghapus promo ini?')) return;
             try {
@@ -1102,26 +1096,27 @@
         function showPOSKasir() {
             if (!requireSeller()) return;
             window.currentViewFunc = showPOSKasir;
-            const options = products.map(p => `<option value="${safeText(p.id)}">${safeText(p.name)} — ${formatRupiah(p.price)} (stok ${Number(p.stock)||0})</option>`).join('');
-            sellerPage('POS Kasir Offline Pro', `
-                <div class="bg-white p-4 rounded-2xl border border-orange-100 space-y-3">
-                    <label class="block space-y-1"><span class="text-xs font-bold text-chocolate">Pilih Produk</span><select id="posProduct" class="w-full p-3 border border-orange-200 rounded-xl text-sm">${options}</select></label>
-                    <div class="flex gap-2">
-                        ${sellerButton('＋ Tambah Item', 'addPOSItem()', 'flex-1')}
-                        <button onclick="clearPOSCart()" class="px-4 py-3 rounded-xl border border-orange-200 text-xs font-bold text-chocolate">Kosongkan</button>
-                    </div>
-                    <div id="posItems" class="space-y-2"></div>
-                    <div class="p-3 bg-orange-50 rounded-xl text-sm font-bold text-chocolate space-y-1">
-                        <p>Subtotal: <span id="posSubtotal">Rp0</span></p>
-                        <p>PPN (11%): <span id="posTax">Rp0</span></p>
-                        <p class="text-lg text-pink-custom">Total: <span id="posTotal">Rp0</span></p>
-                    </div>
-                    <label class="block space-y-1"><span class="text-xs font-bold text-chocolate">Metode Pembayaran</span><select id="posPayment" class="w-full p-3 border border-orange-200 rounded-xl text-sm"><option>Tunai / Cash</option><option>QRIS Kasir</option><option>Kartu Debit/Kredit</option></select></label>
-                    <button onclick="submitPOSTransaction()" class="w-full py-3 rounded-xl bg-pink-btn text-white font-bold text-sm">💳 Proses Transaksi & Buat Struk</button>
-                </div>
-            `);
+            const options = products.map(p => '<option value="' + safeText(p.id) + '">' + safeText(p.name) + ' — ' + formatRupiah(p.price) + ' (stok ' + (Number(p.stock)||0) + ')</option>').join('');
+            sellerPage('POS Kasir Offline Pro', 
+                '<div class="bg-white p-4 rounded-2xl border border-orange-100 space-y-3">' +
+                    '<label class="block space-y-1"><span class="text-xs font-bold text-chocolate">Pilih Produk</span><select id="posProduct" class="w-full p-3 border border-orange-200 rounded-xl text-sm">' + options + '</select></label>' +
+                    '<div class="flex gap-2">' +
+                        sellerButton('＋ Tambah Item', 'addPOSItem()', 'flex-1') +
+                        '<button onclick="clearPOSCart()" class="px-4 py-3 rounded-xl border border-orange-200 text-xs font-bold text-chocolate">Kosongkan</button>' +
+                    '</div>' +
+                    '<div id="posItems" class="space-y-2"></div>' +
+                    '<div class="p-3 bg-orange-50 rounded-xl text-sm font-bold text-chocolate space-y-1">' +
+                        '<p>Subtotal: <span id="posSubtotal">Rp0</span></p>' +
+                        '<p>PPN (11%): <span id="posTax">Rp0</span></p>' +
+                        '<p class="text-lg text-pink-custom">Total: <span id="posTotal">Rp0</span></p>' +
+                    '</div>' +
+                    '<label class="block space-y-1"><span class="text-xs font-bold text-chocolate">Metode Pembayaran</span><select id="posPayment" class="w-full p-3 border border-orange-200 rounded-xl text-sm"><option>Tunai / Cash</option><option>QRIS Kasir</option><option>Kartu Debit/Kredit</option></select></label>' +
+                    '<button onclick="submitPOSTransaction()" class="w-full py-3 rounded-xl bg-pink-btn text-white font-bold text-sm">💳 Proses Transaksi & Buat Struk</button>' +
+                '</div>'
+            );
             renderPOSItems();
         }
+
         function addPOSItem() {
             const id = document.getElementById('posProduct')?.value;
             const p = products.find(x => String(x.id) === String(id));
@@ -1131,6 +1126,7 @@
             else posCart.push({ product: p, quantity: 1 });
             renderPOSItems();
         }
+
         function updatePOSQty(id, delta) {
             const item = posCart.find(x => String(x.product.id) === String(id));
             if (!item) return;
@@ -1138,23 +1134,26 @@
             if (item.quantity <= 0) posCart = posCart.filter(x => x !== item);
             renderPOSItems();
         }
+
         function clearPOSCart() { posCart = []; renderPOSItems(); }
+
         function renderPOSItems() {
             const el = document.getElementById('posItems');
             if (!el) return;
-            el.innerHTML = posCart.length ? posCart.map(i => `
-                <div class="flex items-center gap-2 p-3 bg-white border border-orange-100 rounded-xl">
-                    <div class="flex-1"><p class="text-xs font-bold text-chocolate">${safeText(i.product.name)} (${i.quantity} × ${formatRupiah(i.product.price)})</p></div>
-                    <button onclick="updatePOSQty('${safeText(i.product.id)}', -1)" class="px-3 py-2 bg-orange-50 rounded-lg">-</button>
-                    <button onclick="updatePOSQty('${safeText(i.product.id)}', 1)" class="px-3 py-2 bg-orange-50 rounded-lg">+</button>
-                </div>
-            `).join('') : '<p class="text-xs text-gray-400 text-center p-4">Belum ada item dipilih.</p>';
+            el.innerHTML = posCart.length ? posCart.map(i => 
+                '<div class="flex items-center gap-2 p-3 bg-white border border-orange-100 rounded-xl">' +
+                    '<div class="flex-1"><p class="text-xs font-bold text-chocolate">' + safeText(i.product.name) + ' (' + i.quantity + ' × ' + formatRupiah(i.product.price) + ')</p></div>' +
+                    '<button onclick="updatePOSQty(\'' + safeText(i.product.id) + '\', -1)" class="px-3 py-2 bg-orange-50 rounded-lg">-</button>' +
+                    '<button onclick="updatePOSQty(\'' + safeText(i.product.id) + '\', 1)" class="px-3 py-2 bg-orange-50 rounded-lg">+</button>' +
+                '</div>'
+            ).join('') : '<p class="text-xs text-gray-400 text-center p-4">Belum ada item dipilih.</p>';
             const subtotal = posCart.reduce((sum, i) => sum + Number(i.product.price) * i.quantity, 0);
             const tax = subtotal * 0.11;
             document.getElementById('posSubtotal').textContent = formatRupiah(subtotal);
             document.getElementById('posTax').textContent = formatRupiah(tax);
             document.getElementById('posTotal').textContent = formatRupiah(subtotal + tax);
         }
+
         async function submitPOSTransaction() {
             if (!posCart.length) return showMessage('POS Kasir', 'Keranjang kasir masih kosong.');
             const subtotal = posCart.reduce((sum, i) => sum + Number(i.product.price) * i.quantity, 0);
@@ -1166,18 +1165,19 @@
                     total, payment: method,
                     items: posCart.map(i => ({ product_id: i.product.id, quantity: i.quantity, price: i.product.price }))
                 });
-                const receipt = `=========== AANG CAKESHOP ===========\nNota Kasir: #${result.order_id || '-'}\nMetode: ${method}\n-------------------------------------\n${posCart.map(i => `${i.product.name}\n${i.quantity} x${formatRupiah(i.product.price * i.quantity)}`).join('\n')}\n-------------------------------------\nSubtotal: ${formatRupiah(subtotal)}\nPPN (11%): ${formatRupiah(tax)}\nTOTAL: ${formatRupiah(total)}\n=====================================\nTerima kasih ❤`;
-                sellerPage('Struk Kasir', `
-                    <pre class="whitespace-pre-wrap bg-white p-4 border border-orange-100 rounded-xl text-xs">${safeText(receipt)}</pre>
-                    <div class="grid grid-cols-2 gap-2">
-                        <button onclick="window.print()" class="py-3 rounded-xl bg-pink-btn text-white font-bold text-xs">🖨 Cetak Struk</button>
-                        <button onclick="downloadReceiptText(${JSON.stringify(receipt)})" class="py-3 rounded-xl border border-orange-200 text-chocolate font-bold text-xs">⬇ Unduh Struk TXT</button>
-                    </div>
-                    <button onclick="showPOSKasir()" class="w-full py-3 rounded-xl border border-orange-200 text-xs font-bold">Transaksi Berikutnya</button>
-                `);
+                const receipt = '=========== AANG CAKESHOP ===========\nNota Kasir: #' + (result.order_id || '-') + '\nMetode: ' + method + '\n-------------------------------------\n' + posCart.map(i => i.product.name + '\n' + i.quantity + ' x ' + formatRupiah(i.product.price * i.quantity)).join('\n') + '\n-------------------------------------\nSubtotal: ' + formatRupiah(subtotal) + '\nPPN (11%): ' + formatRupiah(tax) + '\nTOTAL: ' + formatRupiah(total) + '\n=====================================\nTerima kasih ❤';
+                sellerPage('Struk Kasir', 
+                    '<pre class="whitespace-pre-wrap bg-white p-4 border border-orange-100 rounded-xl text-xs">' + safeText(receipt) + '</pre>' +
+                    '<div class="grid grid-cols-2 gap-2">' +
+                        '<button onclick="window.print()" class="py-3 rounded-xl bg-pink-btn text-white font-bold text-xs">🖨 Cetak Struk</button>' +
+                        '<button onclick="downloadReceiptText(' + JSON.stringify(receipt) + ')" class="py-3 rounded-xl border border-orange-200 text-chocolate font-bold text-xs">⬇ Unduh Struk TXT</button>' +
+                    '</div>' +
+                    '<button onclick="showPOSKasir()" class="w-full py-3 rounded-xl border border-orange-200 text-xs font-bold">Transaksi Berikutnya</button>'
+                );
                 posCart = [];
             } catch (error) { showMessage('Transaksi Kasir Gagal', error.message); }
         }
+
         function downloadReceiptText(content) {
             const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
             const url = URL.createObjectURL(blob);
@@ -1199,39 +1199,41 @@
                     if (!buyers[id]) buyers[id] = { id, name: c.senderName || id, last: c.message || '', time: c.timestamp || '' };
                     else if (String(c.timestamp) > String(buyers[id].time)) buyers[id] = { id, name: c.senderName || id, last: c.message || '', time: c.timestamp || '' };
                 });
-                const rows = Object.values(buyers).map(b => `
-                    <button onclick="showSellerChat('${safeText(b.id)}', '${safeText(b.name)}')" class="w-full text-left bg-white border border-orange-100 rounded-xl p-3">
-                        <p class="font-bold text-sm text-chocolate">${safeText(b.name)}</p>
-                        <p class="text-xs text-gray-500 mt-1">${safeText(b.last)}</p>
-                        <p class="text-[10px] text-gray-400">${safeText(b.time)}</p>
-                    </button>
-                `).join('');
-                sellerPage('Kelola Pesan Pembeli', `<div class="space-y-2">${rows || '<p class="bg-white p-4 rounded-xl text-xs text-gray-500">Belum ada pesan pembeli.</p>'}<button onclick="showSellerChatList()" class="w-full py-3 border border-orange-200 rounded-xl text-xs font-bold">↻ Muat ulang pesan</button></div>`);
+                const rows = Object.values(buyers).map(b => 
+                    '<button onclick="showSellerChat(\'' + safeText(b.id) + '\', \'' + safeText(b.name) + '\')" class="w-full text-left bg-white border border-orange-100 rounded-xl p-3">' +
+                        '<p class="font-bold text-sm text-chocolate">' + safeText(b.name) + '</p>' +
+                        '<p class="text-xs text-gray-500 mt-1">' + safeText(b.last) + '</p>' +
+                        '<p class="text-[10px] text-gray-400">' + safeText(b.time) + '</p>' +
+                    '</button>'
+                ).join('');
+                sellerPage('Kelola Pesan Pembeli', '<div class="space-y-2">' + (rows || '<p class="bg-white p-4 rounded-xl text-xs text-gray-500">Belum ada pesan pembeli.</p>') + '<button onclick="showSellerChatList()" class="w-full py-3 border border-orange-200 rounded-xl text-xs font-bold">↻ Muat ulang pesan</button></div>');
             } catch (error) {
-                sellerPage('Kelola Pesan Pembeli', `<p class="p-3 bg-red-50 text-red-700 rounded-xl text-xs">${safeText(error.message)}</p>`);
+                sellerPage('Kelola Pesan Pembeli', '<p class="p-3 bg-red-50 text-red-700 rounded-xl text-xs">' + safeText(error.message) + '</p>');
             }
         }
+
         async function showSellerChat(buyerId, buyerName) {
             if (!requireSeller()) return;
             window.currentViewFunc = () => showSellerChat(buyerId, buyerName);
             try {
                 const result = await apiGet('get_chats', { sender_id: 'SELLER', target_buyer_id: buyerId });
                 const chats = result.data || [];
-                sellerPage(`Chat: ${safeText(buyerName)}`, `
-                    <div id="sellerChatLogs" class="bg-white border border-orange-100 rounded-xl p-3 h-72 overflow-y-auto space-y-2">
-                        ${chats.map(c => `
-                            <div class="p-2 rounded-xl ${c.senderId === 'SELLER' ? 'bg-pink-50 ml-8' : 'bg-orange-50 mr-8'}">
-                                <p class="text-[10px] font-bold text-gray-500">${safeText(c.timestamp)}</p>
-                                <p class="text-xs text-chocolate">${safeText(c.message)}</p>
-                            </div>
-                        `).join('') || '<p class="text-xs text-gray-400">Belum ada pesan.</p>'}
-                    </div>
-                    <form id="sellerReplyForm" class="flex gap-2">
-                        <input id="sellerReplyText" class="flex-1 p-3 rounded-xl border border-orange-200 text-xs" placeholder="Tulis balasan..." required>
-                        <button class="px-4 py-3 bg-pink-btn text-white rounded-xl text-xs font-bold">Kirim</button>
-                    </form>
-                    <button onclick="showSellerChatList()" class="w-full py-3 border border-orange-200 rounded-xl text-xs font-bold">← Daftar Chat</button>
-                `, 'showSellerChatList()');
+                sellerPage('Chat: ' + safeText(buyerName), 
+                    '<div id="sellerChatLogs" class="bg-white border border-orange-100 rounded-xl p-3 h-72 overflow-y-auto space-y-2">' +
+                        (chats.map(c => 
+                            '<div class="p-2 rounded-xl ' + (c.senderId === 'SELLER' ? 'bg-pink-50 ml-8' : 'bg-orange-50 mr-8') + '">' +
+                                '<p class="text-[10px] font-bold text-gray-500">' + safeText(c.timestamp) + '</p>' +
+                                '<p class="text-xs text-chocolate">' + safeText(c.message) + '</p>' +
+                            '</div>'
+                        ).join('') || '<p class="text-xs text-gray-400">Belum ada pesan.</p>') +
+                    '</div>' +
+                    '<form id="sellerReplyForm" class="flex gap-2">' +
+                        '<input id="sellerReplyText" class="flex-1 p-3 rounded-xl border border-orange-200 text-xs" placeholder="Tulis balasan..." required>' +
+                        '<button class="px-4 py-3 bg-pink-btn text-white rounded-xl text-xs font-bold">Kirim</button>' +
+                    '</form>' +
+                    '<button onclick="showSellerChatList()" class="w-full py-3 border border-orange-200 rounded-xl text-xs font-bold">← Daftar Chat</button>', 
+                    'showSellerChatList()'
+                );
                 
                 document.getElementById('sellerReplyForm').addEventListener('submit', async e => {
                     e.preventDefault();
@@ -1255,26 +1257,25 @@
                 const couriers = result.data || [];
                 const options = ['JNE', 'J&T', 'SiCepat', 'AnterAja', 'POS Indonesia', 'GoSend', 'GrabExpress'];
                 const existing = couriers.length ? couriers.map(c => ({name: c.courier || c.name, active: String(c.status || '').toUpperCase() !== 'TIDAK'})) : options.map(name => ({name, active: true}));
-                const rows = existing.map((c, i) => `
-                    <label class="flex items-center gap-3 bg-white border border-orange-100 rounded-xl p-3">
-                        <input type="checkbox" id="shipping_${i}" ${c.active ? 'checked' : ''}>
-                        <span class="text-sm font-bold text-chocolate">${safeText(c.name)}</span>
-                    </label>
-                `).join('');
+                const rows = existing.map((c, i) => 
+                    '<label class="flex items-center gap-3 bg-white border border-orange-100 rounded-xl p-3">' +
+                        '<input type="checkbox" id="shipping_' + i + '" ' + (c.active ? 'checked' : '') + '>' +
+                        '<span class="text-sm font-bold text-chocolate">' + safeText(c.name) + '</span>' +
+                    '</label>'
+                ).join('');
                 
-                document.getElementById('contentContainer').innerHTML = `
-                    <div class="space-y-4 pb-20">
-                        <button onclick="showAccount()" class="text-xs font-bold text-chocolate">← Kembali ke Seller Center</button>
-                        <h2 class="text-lg font-extrabold text-chocolate">Pengaturan Pengiriman Toko</h2>
-                        <div class="space-y-2">${rows}</div>
-                        <button onclick="saveShippingSettingsUI(${JSON.stringify(existing.map(c => c.name))})" class="w-full py-3 rounded-xl bg-pink-btn text-white font-bold text-sm">💾 Simpan Pengaturan</button>
-                    </div>
-                `;
+                document.getElementById('contentContainer').innerHTML = '<div class="space-y-4 pb-20">' +
+                    '<button onclick="showAccount()" class="text-xs font-bold text-chocolate">← Kembali ke Seller Center</button>' +
+                    '<h2 class="text-lg font-extrabold text-chocolate">Pengaturan Pengiriman Toko</h2>' +
+                    '<div class="space-y-2">' + rows + '</div>' +
+                    '<button onclick="saveShippingSettingsUI(' + JSON.stringify(existing.map(c => c.name)) + ')" class="w-full py-3 rounded-xl bg-pink-btn text-white font-bold text-sm">💾 Simpan Pengaturan</button>' +
+                '</div>';
             } catch (error) { showMessage('Pengiriman', error.message); }
         }
+
         async function saveShippingSettingsUI(names) {
             try {
-                const couriers = names.map((name, i) => ({ name, active: !!document.getElementById(`shipping_${i}`)?.checked }));
+                const couriers = names.map((name, i) => ({ name, active: !!document.getElementById('shipping_' + i)?.checked }));
                 const result = await apiPost('save_shipping_settings', { couriers });
                 showMessage('Pengiriman', result.message || 'Pengaturan pengiriman disimpan.');
                 showShippingSettings();
@@ -1291,7 +1292,7 @@
             ];
         }
 
-        // Jalankan pemuatan data awal
+        // Inisialisasi awal saat halaman dibuka
         loadAllData();
     </script>
 </body>
