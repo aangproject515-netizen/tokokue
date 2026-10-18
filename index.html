@@ -35,14 +35,12 @@
             <button onclick="showCart()" class="text-xl p-1 relative" title="Keranjang">🛒</button>
         </div>
     </header>
-
     <!-- MAIN DYNAMIC CONTENT CONTAINER -->
     <main id="contentContainer" class="flex-1 max-w-2xl w-full mx-auto p-4">
         <div class="text-center py-10">
             <p class="text-xs text-gray-400 font-bold">Sedang memuat kue-kue manis...</p>
         </div>
     </main>
-
     <!-- BOTTOM NAVIGATION BAR -->
     <nav class="fixed bottom-0 left-0 right-0 max-w-2xl mx-auto bg-white border-t border-gray-200 h-16 flex justify-around items-center z-50 shadow-lg px-2">
         <button onclick="setActiveNav('home'); showHome()" class="flex flex-col items-center flex-1 text-pink-custom" id="navHome">
@@ -66,10 +64,9 @@
             <span class="text-[10px]">Akun</span>
         </button>
     </nav>
-
     <!-- JAVASCRIPT LOGIC & API INTEGRATION -->
     <script>
-        const BASE_URL = "https://script.google.com/macros/s/AKfycby39m3UjNBIhLTyT5UAatDmVEx9tOsPNqh_K9IT6qoF9xo_nXehoKjLjYXzVMKFjy2L_A/exec";
+        const BASE_URL = "https://script.google.com/macros/s/AKfycbzGlOQdOo3ePJ57qnEtpvraj8164lMmNkoNjT_aaVNm8K_Vukn1gxTLzlpg-uqY-QA5Mg/exec";
         let products = [];
         let categories = [];
         let promos = [];
@@ -93,13 +90,11 @@
         function showMessage(title, message) {
             alert(`${title}: ${message}`);
         }
-
         async function loadAllData() {
             try {
                 const resProd = await fetch(`${BASE_URL}?action=products`).then(r => r.json()).catch(() => null);
                 const resCat = await fetch(`${BASE_URL}?action=categories`).then(r => r.json()).catch(() => null);
                 const resPromo = await fetch(`${BASE_URL}?action=promos`).then(r => r.json()).catch(() => null);
-
                 if (resProd && resProd.success) products = resProd.data || [];
                 if (resCat && resCat.success) categories = resCat.data || [];
                 if (resPromo && resPromo.success) promos = resPromo.data || [];
@@ -109,7 +104,6 @@
                 showHome();
             }
         }
-
         function setActiveNav(nav) {
             ['Home', 'Category', 'Cart', 'Promo', 'Account'].forEach(n => {
                 const btn = document.getElementById('nav' + n);
@@ -141,9 +135,9 @@
                         <h2 class="font-bold text-chocolate text-base mb-2">Kategori</h2>
                         <div class="flex overflow-x-auto space-x-3 pb-2 scrollbar-none">
                             ${(categories.length ? categories : getDefaultCategories()).map(c => `
-                                <div onclick="showProductList('${c.name}')" class="flex-shrink-0 w-20 h-24 bg-orange-50 border border-orange-100 rounded-xl flex flex-col items-center justify-center p-2 cursor-pointer shadow-sm">
-                                    <span class="text-2xl">${c.icon}</span>
-                                    <span class="text-[11px] font-bold text-chocolate text-center mt-1 truncate w-full">${c.name}</span>
+                                <div onclick="showProductList('${safeText(c.name)}')" class="flex-shrink-0 w-20 h-24 bg-orange-50 border border-orange-100 rounded-xl flex flex-col items-center justify-center p-2 cursor-pointer shadow-sm">
+                                    <span class="text-2xl">${safeText(c.icon)}</span>
+                                    <span class="text-[11px] font-bold text-chocolate text-center mt-1 truncate w-full">${safeText(c.name)}</span>
                                 </div>
                             `).join('')}
                         </div>
@@ -177,16 +171,16 @@
                 const displayImg = p.image || (p.images && p.images[0]) || '';
                 return `
                     <div class="bg-white border border-orange-100 rounded-2xl p-2.5 flex flex-col shadow-sm">
-                        <div class="relative h-36 rounded-xl overflow-hidden bg-gray-100 cursor-pointer" onclick="showProductDetail('${p.id}')">
-                            <img src="${displayImg}" class="w-full h-full object-cover" onerror="this.src='https://via.placeholder.com/150?text=Kue'">
-                            <button onclick="event.stopPropagation(); toggleFavorite('${p.id}')" class="absolute top-2 right-2 w-8 h-8 bg-white/90 rounded-full flex items-center justify-center text-pink-custom shadow-sm text-lg">
+                        <div class="relative h-36 rounded-xl overflow-hidden bg-gray-100 cursor-pointer" onclick="showProductDetail('${safeText(p.id)}')">
+                            <img src="${safeText(displayImg)}" class="w-full h-full object-cover" onerror="this.src='https://via.placeholder.com/150?text=Kue'">
+                            <button onclick="event.stopPropagation(); toggleFavorite('${safeText(p.id)}')" class="absolute top-2 right-2 w-8 h-8 bg-white/90 rounded-full flex items-center justify-center text-pink-custom shadow-sm text-lg">
                                 ${isFav ? '♥' : '♡'}
                             </button>
                         </div>
-                        <h3 class="font-bold text-chocolate text-xs mt-2 line-clamp-2 cursor-pointer" onclick="showProductDetail('${p.id}')">${p.name}</h3>
+                        <h3 class="font-bold text-chocolate text-xs mt-2 line-clamp-2 cursor-pointer" onclick="showProductDetail('${safeText(p.id)}')">${safeText(p.name)}</h3>
                         <p class="text-[10px] text-gray-400 mt-0.5">⭐ ${p.rating ? p.rating.toFixed(1) : '0.0'} • ${p.sold_count || 0} terjual</p>
                         <p class="font-bold text-pink-custom text-xs mt-1">${formatRupiah(p.price)}</p>
-                        <button onclick="addToCart('${p.id}')" ${p.stock <= 0 ? 'disabled' : ''} class="mt-2 w-full py-1.5 rounded-xl text-xs font-bold text-white bg-pink-btn ${p.stock <= 0 ? 'opacity-50 cursor-not-allowed' : ''}">
+                        <button onclick="addToCart('${safeText(p.id)}')" ${p.stock <= 0 ? 'disabled' : ''} class="mt-2 w-full py-1.5 rounded-xl text-xs font-bold text-white bg-pink-btn ${p.stock <= 0 ? 'opacity-50 cursor-not-allowed' : ''}">
                             ${p.stock > 0 ? '+ Tambah' : 'Stok Habis'}
                         </button>
                     </div>
@@ -209,27 +203,27 @@
                 <div class="space-y-4 pb-12">
                     <button onclick="showHome()" class="text-sm font-bold text-chocolate flex items-center">← Kembali</button>
                     <div class="flex overflow-x-auto space-x-2 pb-2 scrollbar-none">
-                        ${imagesList.map(img => `<img src="${img}" class="w-64 h-52 object-cover rounded-2xl flex-shrink-0 bg-gray-100 border border-orange-100" onerror="this.src='https://via.placeholder.com/300?text=Foto+Kue'">`).join('')}
+                        ${imagesList.map(img => `<img src="${safeText(img)}" class="w-64 h-52 object-cover rounded-2xl flex-shrink-0 bg-gray-100 border border-orange-100" onerror="this.src='https://via.placeholder.com/300?text=Foto+Kue'">`).join('')}
                     </div>
-                    <h1 class="text-xl font-bold text-chocolate">${p.name}</h1>
+                    <h1 class="text-xl font-bold text-chocolate">${safeText(p.name)}</h1>
                     <div class="flex items-baseline space-x-2">
                         <span class="text-2xl font-bold text-pink-custom">${formatRupiah(finalPrice)}</span>
                         ${activePromo ? `<span class="text-xs bg-pink-100 text-pink-custom px-2 py-0.5 rounded-full font-bold">Diskon ${activePromo.discount}%</span>` : ''}
                     </div>
                     <p class="text-xs text-gray-500">⭐ ${p.rating ? p.rating.toFixed(1) : '0.0'} / 5.0 • ${p.sold_count || 0} Terjual • Stok: ${p.stock}</p>
-                    <button onclick="showChatWindow('${p.id}')" class="w-full py-2.5 bg-white border border-orange-200 text-chocolate font-bold text-xs rounded-xl shadow-sm">
+                    <button onclick="showChatWindow('${safeText(p.id)}')" class="w-full py-2.5 bg-white border border-orange-200 text-chocolate font-bold text-xs rounded-xl shadow-sm">
                         💬 Tanya Seller Mengenai Produk Ini
                     </button>
                     <div>
                         <h3 class="font-bold text-chocolate text-sm mb-1">Deskripsi Kue</h3>
-                        <p class="text-xs text-gray-600 bg-white p-3 rounded-xl border border-orange-100 leading-relaxed">${p.description || 'Tidak ada deskripsi produk.'}</p>
+                        <p class="text-xs text-gray-600 bg-white p-3 rounded-xl border border-orange-100 leading-relaxed">${safeText(p.description || 'Tidak ada deskripsi produk.')}</p>
                     </div>
                     <div>
                         <h3 class="font-bold text-chocolate text-sm mb-2">Ulasan Pembeli</h3>
                         <div id="reviewsList" class="space-y-2">
                             <p class="text-xs text-gray-400">Memuat ulasan...</p>
                         </div>
-                        <button onclick="openReviewDialog('${p.id}')" class="mt-3 w-full py-2 bg-pink-btn text-white text-xs font-bold rounded-xl">
+                        <button onclick="openReviewDialog('${safeText(p.id)}')" class="mt-3 w-full py-2 bg-pink-btn text-white text-xs font-bold rounded-xl">
                             ✍ Beri Ulasan & Rating Kue Ini
                         </button>
                     </div>
@@ -239,7 +233,7 @@
                             <span id="qtyVal" class="w-10 text-center font-bold text-sm">1</span>
                             <button onclick="adjustQty(1)" class="w-10 h-10 font-bold text-lg text-chocolate">+</button>
                         </div>
-                        <button onclick="addToCartQty('${p.id}')" class="flex-1 py-3 bg-pink-btn text-white font-bold text-sm rounded-xl shadow-md">
+                        <button onclick="addToCartQty('${safeText(p.id)}')" class="flex-1 py-3 bg-pink-btn text-white font-bold text-sm rounded-xl shadow-md">
                             🛒 Tambahkan Ke Keranjang
                         </button>
                     </div>
@@ -247,6 +241,7 @@
             `;
             loadReviews(p.id);
         }
+
         let currentQty = 1;
         function adjustQty(val) {
             const currentProduct = products.find(item => item.id === (window.currentDetailProductId || ''));
@@ -255,20 +250,21 @@
             const el = document.getElementById('qtyVal');
             if (el) el.innerText = currentQty;
         }
+
         async function loadReviews(prodId) {
             const listEl = document.getElementById('reviewsList');
             if (!listEl) return;
             try {
-                const res = await fetch(`{encodeURIComponent(prodId)}`).then(r => r.json());
+                const res = await fetch(`${BASE_URL}?action=get_reviews&product_id=${encodeURIComponent(prodId)}`).then(r => r.json());
                 if (res && res.success && res.data && res.data.length > 0) {
                     listEl.innerHTML = res.data.map(r => `
                         <div class="bg-white p-3 rounded-xl border border-orange-100 space-y-1">
                             <div class="flex justify-between items-center text-xs">
-                                <span class="font-bold text-chocolate">👤 ${r.userName} • ⭐ ${r.rating}/5</span>
-                                <span class="text-[10px] text-gray-400">${r.timestamp}</span>
+                                <span class="font-bold text-chocolate">👤 ${safeText(r.userName)} • ⭐ ${r.rating}/5</span>
+                                <span class="text-[10px] text-gray-400">${safeText(r.timestamp)}</span>
                             </div>
-                            <p class="text-xs text-gray-700">${r.comment}</p>
-                            ${r.imageUrl ? `<img src="${r.imageUrl}" class="w-20 h-20 object-cover rounded-lg mt-1">` : ''}
+                            <p class="text-xs text-gray-700">${safeText(r.comment)}</p>
+                            ${r.imageUrl ? `<img src="${safeText(r.imageUrl)}" class="w-20 h-20 object-cover rounded-lg mt-1">` : ''}
                         </div>
                     `).join('');
                 } else {
@@ -278,6 +274,7 @@
                 listEl.innerHTML = `<p class="text-xs text-gray-400 italic">Belum ada ulasan untuk kue ini.</p>`;
             }
         }
+
         function openReviewDialog(prodId) {
             const rating = prompt("Beri Rating (1 - 5):", "5");
             if (!rating) return;
@@ -303,14 +300,15 @@
                 <div class="space-y-3">
                     <h2 class="font-bold text-chocolate text-lg mb-2">Kategori Kue</h2>
                     ${catList.map(c => `
-                        <div onclick="showProductList('${c.name}')" class="bg-white p-4 rounded-2xl border border-orange-100 flex items-center space-x-4 cursor-pointer shadow-sm">
-                            <span class="text-3xl">${c.icon}</span>
-                            <span class="font-bold text-chocolate text-base">${c.name}</span>
+                        <div onclick="showProductList('${safeText(c.name)}')" class="bg-white p-4 rounded-2xl border border-orange-100 flex items-center space-x-4 cursor-pointer shadow-sm">
+                            <span class="text-3xl">${safeText(c.icon)}</span>
+                            <span class="font-bold text-chocolate text-base">${safeText(c.name)}</span>
                         </div>
                     `).join('')}
                 </div>
             `;
         }
+
         function showProductList(catName) {
             window.currentViewFunc = () => showProductList(catName);
             const container = document.getElementById('contentContainer');
@@ -318,7 +316,7 @@
             container.innerHTML = `
                 <div class="space-y-3">
                     <button onclick="showCategory()" class="text-sm font-bold text-chocolate">← Kembali ke Kategori</button>
-                    <h2 class="font-bold text-chocolate text-lg">Kategori: ${catName}</h2>
+                    <h2 class="font-bold text-chocolate text-lg">Kategori: ${safeText(catName)}</h2>
                     <div class="grid grid-cols-2 gap-3">
                         ${renderProductCards(filtered)}
                     </div>
@@ -338,6 +336,7 @@
             }
             saveCartAndNotify(p.name);
         }
+
         function addToCartQty(prodId) {
             const p = products.find(item => item.id === prodId);
             if (!p) return;
@@ -350,10 +349,12 @@
             currentQty = 1;
             saveCartAndNotify(p.name);
         }
+
         function saveCartAndNotify(name) {
             localStorage.setItem('cart', JSON.stringify(cart));
             showMessage('Keranjang', `${name} berhasil ditambahkan ke keranjang!`);
         }
+
         function showCart() {
             window.currentViewFunc = showCart;
             setActiveNav('cart');
@@ -378,10 +379,10 @@
                     <div class="space-y-3">
                         ${cart.map((item, idx) => `
                             <div class="bg-white p-3 rounded-2xl border border-orange-100 flex items-center space-x-3 shadow-sm">
-                                <input type="checkbox" aria-label="Pilih ${safeText(item.product.name)}" ${item.selected !== false ? 'checked' : ''} onchange="toggleCartItem(${idx}, this.checked)" class="w-4 h-4 accent-pink-500 shrink-0">
-                                <img src="${item.product.image || ''}" class="w-16 h-16 object-cover rounded-xl bg-gray-100" onerror="this.src='https://via.placeholder.com/100?text=Kue'">
+                                <input type="checkbox" aria-label="Pilih ${safeText(item.product.name)}" ${item.selected!==false?'checked':''} onchange="toggleCartItem(${idx}, this.checked)" class="w-4 h-4 accent-pink-500 shrink-0">
+                                <img src="${safeText(item.product.image || '')}" class="w-16 h-16 object-cover rounded-xl bg-gray-100" onerror="this.src='https://via.placeholder.com/100?text=Kue'">
                                 <div class="flex-1">
-                                    <h4 class="font-bold text-chocolate text-xs line-clamp-1">${item.product.name}</h4>
+                                    <h4 class="font-bold text-chocolate text-xs line-clamp-1">${safeText(item.product.name)}</h4>
                                     <p class="text-xs text-pink-custom font-bold mt-1">${formatRupiah(item.product.price)}</p>
                                     <div class="flex items-center space-x-2 mt-2">
                                         <button onclick="updateCartQty(${idx}, -1)" class="w-6 h-6 bg-orange-100 rounded-md font-bold text-chocolate text-xs">−</button>
@@ -404,17 +405,20 @@
                 </div>
             `;
         }
+
         function toggleCartItem(idx, checked) {
             if (!cart[idx]) return;
             cart[idx].selected = !!checked;
             localStorage.setItem('cart', JSON.stringify(cart));
             showCart();
         }
+
         function toggleSelectAllCart(checked) {
             cart.forEach(item => item.selected = !!checked);
             localStorage.setItem('cart', JSON.stringify(cart));
             showCart();
         }
+
         function updateCartQty(idx, val) {
             const stock = Number(cart[idx].product.stock) || 0;
             cart[idx].quantity = Math.min(stock, cart[idx].quantity + val);
@@ -422,6 +426,7 @@
             localStorage.setItem('cart', JSON.stringify(cart));
             showCart();
         }
+
         function showCheckout() {
             window.currentViewFunc = showCheckout;
             const container = document.getElementById('contentContainer');
@@ -440,9 +445,9 @@
                     <h2 class="font-bold text-chocolate text-lg">Checkout Pesanan</h2>
                     <div class="bg-white p-4 rounded-2xl border border-orange-100 space-y-3">
                         <h3 class="font-bold text-chocolate text-xs">Informasi Pengiriman</h3>
-                        <input type="text" id="chkName" placeholder="Nama Penerima" value="${savedName}" class="w-full p-2.5 text-xs border border-orange-200 rounded-xl">
-                        <input type="tel" id="chkPhone" placeholder="Nomor HP (Untuk Lacak Pesanan)" value="${savedPhone}" class="w-full p-2.5 text-xs border border-orange-200 rounded-xl">
-                        <textarea id="chkAddress" placeholder="Alamat Pengiriman Lengkap" class="w-full p-2.5 text-xs border border-orange-200 rounded-xl">${savedAddress}</textarea>
+                        <input type="text" id="chkName" placeholder="Nama Penerima" value="${safeText(savedName)}" class="w-full p-2.5 text-xs border border-orange-200 rounded-xl">
+                        <input type="tel" id="chkPhone" placeholder="Nomor HP (Untuk Lacak Pesanan)" value="${safeText(savedPhone)}" class="w-full p-2.5 text-xs border border-orange-200 rounded-xl">
+                        <textarea id="chkAddress" placeholder="Alamat Pengiriman Lengkap" class="w-full p-2.5 text-xs border border-orange-200 rounded-xl">${safeText(savedAddress)}</textarea>
                     </div>
                     <div class="bg-white p-4 rounded-2xl border border-orange-100 space-y-3">
                         <h3 class="font-bold text-chocolate text-xs">Kurir & Pembayaran</h3>
@@ -471,6 +476,7 @@
             `;
             loadCheckoutPaymentMethods();
         }
+
         let checkoutPaymentMethods = [];
         async function loadCheckoutPaymentMethods() {
             const select = document.getElementById('chkPayment');
@@ -481,35 +487,46 @@
             } catch (error) {
                 console.warn('Metode pembayaran toko tidak dapat dimuat:', error);
                 checkoutPaymentMethods = [];
-                console.error('API get_payment_methods gagal. Pastikan deployment Apps Script yang digunakan web sama dengan Android dan versi deployment sudah diperbarui.', error);
             }
-            const choices = checkoutPaymentMethods.map(m =>
-                `<option value="${safeText(m.name)}">${safeText(m.name)} (${safeText(m.type || 'Pembayaran')})</option>`
-            );
+            
+            let choices = [];
             choices.push('<option value="COD / Bayar di Tempat">COD / Bayar di Tempat</option>');
+            
+            checkoutPaymentMethods.forEach(m => {
+                choices.push(`<option value="${safeText(m.name)}">${safeText(m.name)} (${safeText(m.type || 'Pembayaran')})</option>`);
+            });
+            
             select.innerHTML = choices.join('');
             togglePaymentProof(select.value);
+            
             if (!checkoutPaymentMethods.length) {
                 const instructions = document.getElementById('paymentInstructions');
-                if (instructions) instructions.innerHTML = '<p class="font-bold text-red-600">Metode pembayaran dari Google Apps Script belum berhasil dimuat.</p><p class="mt-1">Android menggunakan action <code>get_payment_methods</code>. Periksa apakah URL Web App dan deployment Apps Script yang aktif sama dengan Android. Web tidak bisa menampilkan QRIS dari Sheet jika API mengembalikan “Action GET tidak dikenali”.</p>';
+                if (instructions) {
+                    instructions.innerHTML = '<p class="font-bold text-red-600">Metode pembayaran dari Google Apps Script belum berhasil dimuat.</p><p class="mt-1 text-gray-500">Periksa koneksi internet atau ketersediaan metode pembayaran pada sheet database.</p>';
+                }
             }
         }
+
         function togglePaymentProof(method) {
             const el = document.getElementById('paymentInstructions');
             if (!el) return;
-            const item = checkoutPaymentMethods.find(m => String(m.name) === String(method));
+            
+            const item = checkoutPaymentMethods.find(m => String(m.name).trim() === String(method).trim());
             if (item) {
                 const image = item.image_url || item.image || '';
-                el.innerHTML = `<p class="font-bold text-chocolate mb-1">${safeText(item.name)} — ${safeText(item.type || '')}</p>
-                    <p class="whitespace-pre-line">${safeText(item.detail || 'Ikuti instruksi pembayaran dari toko.')}</p>
-                    ${image ? `<img src="${safeText(image)}" alt="QR / informasi ${safeText(item.name)}" class="mt-3 mx-auto max-w-full max-h-72 rounded-xl border border-orange-200 bg-white object-contain" onerror="this.style.display='none'">` : ''}
-                    ${String(item.type || '').toUpperCase().includes('QRIS') && !image ? '<p class="mt-2 text-red-600 font-bold">Gambar QRIS belum diatur penjual. Hubungi toko sebelum membayar.</p>' : ''}`;
+                el.innerHTML = `
+                    <p class="font-bold text-chocolate mb-1">${safeText(item.name)} — ${safeText(item.type || '')}</p>
+                    <p class="whitespace-pre-line mb-2">${safeText(item.detail || 'Ikuti instruksi pembayaran dari toko.')}</p>
+                    ${image ? `<img src="${safeText(image)}" alt="QR / informasi ${safeText(item.name)}" class="mt-2 mx-auto max-w-full max-h-72 rounded-xl border border-orange-200 bg-white object-contain" onerror="this.style.display='none'">` : ''}
+                    ${String(item.type || '').toUpperCase().includes('QRIS') && !image ? '<p class="mt-2 text-red-600 font-bold">Gambar QRIS belum diatur penjual.</p>' : ''}
+                `;
             } else if (String(method).toUpperCase().includes('COD')) {
-                el.textContent = 'Bayar tunai saat kurir tiba (COD).';
+                el.textContent = 'Pembayaran dilakukan secara tunai kepada kurir saat pesanan sampai di tujuan (COD).';
             } else {
                 el.textContent = 'Ikuti instruksi pembayaran yang ditampilkan toko.';
             }
         }
+
         async function submitOrder(grandTotal) {
             const name = document.getElementById('chkName').value;
             const phone = document.getElementById('chkPhone').value;
@@ -523,7 +540,6 @@
             localStorage.setItem('cust_address', address);
             currentUserName = name;
             localStorage.setItem('user_name', name);
-
             let base64Proof = "";
             if (fileInput.files[0]) {
                 base64Proof = await toBase64(fileInput.files[0]);
@@ -549,6 +565,7 @@
                 }
             });
         }
+
         function toBase64(file) {
             return new Promise((resolve, reject) => {
                 const reader = new FileReader();
@@ -568,15 +585,16 @@
                     <h2 class="font-bold text-chocolate text-lg">Promo & Voucher Spesial</h2>
                     ${promos.length ? promos.map(p => `
                         <div class="bg-gradient-to-r from-pink-50 to-orange-50 border border-pink-200 rounded-2xl p-4 space-y-2">
-                            ${p.image ? `<img src="${p.image}" class="w-full h-36 object-cover rounded-xl">` : ''}
-                            <h3 class="font-bold text-chocolate text-sm">🎁 ${p.title}</h3>
+                            ${p.image ? `<img src="${safeText(p.image)}" class="w-full h-36 object-cover rounded-xl">` : ''}
+                            <h3 class="font-bold text-chocolate text-sm">🎁 ${safeText(p.title)}</h3>
                             <p class="text-xs text-pink-custom font-bold">Diskon ${p.discount}%</p>
-                            <p class="text-[10px] text-gray-500">Berlaku: ${p.startDate} s.d ${p.endDate}</p>
+                            <p class="text-[10px] text-gray-500">Berlaku: ${safeText(p.startDate)} s.d ${safeText(p.endDate)}</p>
                         </div>
                     `).join('') : '<p class="text-xs text-gray-400">Belum ada promo aktif.</p>'}
                 </div>
             `;
         }
+
         function showAccount() {
             window.currentViewFunc = showAccount;
             setActiveNav('account');
@@ -585,7 +603,7 @@
                 container.innerHTML = `
                     <div class="space-y-3 pb-16">
                         <div class="bg-orange-100 p-4 rounded-2xl border border-orange-200">
-                            <h3 class="font-bold text-chocolate text-sm">🏬 Seller Center (${sellerName})</h3>
+                            <h3 class="font-bold text-chocolate text-sm">🏬 Seller Center (${safeText(sellerName)})</h3>
                             <p class="text-xs text-gray-600 mt-1">Kelola produk, pesanan, kategori, & promo toko Anda.</p>
                         </div>
                         <button onclick="showSellerDashboard()" class="w-full p-3 bg-white border border-orange-100 rounded-xl font-bold text-xs text-chocolate shadow-sm text-left">🏪 Dashboard Seller</button>
@@ -606,8 +624,8 @@
                         <div class="bg-white p-4 rounded-2xl border border-orange-100 flex items-center space-x-3">
                             <span class="text-3xl">👤</span>
                             <div>
-                                <h3 class="font-bold text-chocolate text-sm">${isUserLoggedIn ? currentUserName : 'Tamu / Pembeli Anonym'}</h3>
-                                <p class="text-[10px] text-gray-500">${currentUserEmail || 'Belum login Google'}</p>
+                                <h3 class="font-bold text-chocolate text-sm">${isUserLoggedIn ? safeText(currentUserName) : 'Tamu / Pembeli Anonym'}</h3>
+                                <p class="text-[10px] text-gray-500">${safeText(currentUserEmail || 'Belum login Google')}</p>
                             </div>
                         </div>
                         <button onclick="promptSearchOrders()" class="w-full p-3 bg-white border border-orange-100 rounded-xl font-bold text-xs text-chocolate shadow-sm text-left">📦 Lacak Pesanan Saya</button>
@@ -642,20 +660,23 @@
                 }
             });
         }
+
         function logoutSeller() {
             isSellerLoggedIn = false;
             localStorage.removeItem('is_seller');
             showAccount();
         }
+
         function promptSearchOrders() {
             const phone = prompt("Masukkan Nomor HP / WhatsApp pemesan:");
             if (phone) showOrdersHistory(phone);
         }
+
         async function showOrdersHistory(phone) {
             window.currentViewFunc = () => showOrdersHistory(phone);
             const container = document.getElementById('contentContainer');
             try {
-                const res = await fetch(`{encodeURIComponent(phone)}`).then(r => r.json());
+                const res = await fetch(`${BASE_URL}?action=orders&phone=${encodeURIComponent(phone)}`).then(r => r.json());
                 const orders = res.data || [];
                 container.innerHTML = `
                     <div class="space-y-4 pb-16">
@@ -664,11 +685,11 @@
                         ${orders.length ? orders.map(o => `
                             <div class="bg-white p-4 rounded-2xl border border-orange-100 space-y-2">
                                 <div class="flex justify-between text-xs">
-                                    <span class="font-bold text-chocolate">📦 #${o.order_id || o.orderId}</span>
-                                    <span class="text-pink-custom font-bold">${o.status || 'Diproses'}</span>
+                                    <span class="font-bold text-chocolate">📦 #${safeText(o.order_id || o.orderId)}</span>
+                                    <span class="text-pink-custom font-bold">${safeText(o.status || 'Diproses')}</span>
                                 </div>
                                 <p class="text-[11px] text-gray-600">Total: ${formatRupiah(o.total || o.grand_total || 0)}</p>
-                                <p class="text-[11px] text-gray-600">Kurir: ${o.courier || '-'} | Resi:${o.awb || o.resi || 'Menunggu Resi'}</p>
+                                <p class="text-[11px] text-gray-600">Kurir: ${safeText(o.courier \vert{}\vert{} '-')} \vert{} Resi:${safeText(o.awb || o.resi || 'Menunggu Resi')}</p>
                             </div>
                         `).join('') : '<p class="text-xs text-gray-400">Tidak ada riwayat pesanan.</p>'}
                     </div>
@@ -677,6 +698,7 @@
                 showMessage('Error', 'Gagal memuat pesanan.');
             }
         }
+
         function toggleFavorite(prodId) {
             if (favorites.includes(prodId)) {
                 favorites = favorites.filter(id => id !== prodId);
@@ -688,6 +710,7 @@
             localStorage.setItem('favs', JSON.stringify(favorites));
             if (window.currentViewFunc) window.currentViewFunc();
         }
+
         function showFavorites() {
             window.currentViewFunc = showFavorites;
             const container = document.getElementById('contentContainer');
@@ -702,12 +725,15 @@
                 </div>
             `;
         }
+
         function showNotifications() {
             showMessage('Notifikasi', '💬 Pesan baru dari Chat Seller!\n📦 Pesanan sedang diproses.\n🎉 Diskon Spesial Hari Ini!');
         }
+
         function checkSellerChatAccess() {
             showChatWindow('ALL_GENERAL');
         }
+
         async function showChatWindow(prodId) {
             window.currentViewFunc = () => showChatWindow(prodId);
             const container = document.getElementById('contentContainer');
@@ -720,12 +746,13 @@
                     </div>
                     <div class="flex space-x-2">
                         <input type="text" id="chatInput" placeholder="Tulis pesan..." class="flex-1 p-2.5 text-xs border border-orange-200 rounded-xl">
-                        <button onclick="sendChatMessage('${prodId}')" class="px-4 py-2.5 bg-pink-btn text-white font-bold text-xs rounded-xl">Kirim</button>
+                        <button onclick="sendChatMessage('${safeText(prodId)}')" class="px-4 py-2.5 bg-pink-btn text-white font-bold text-xs rounded-xl">Kirim</button>
                     </div>
                 </div>
             `;
             loadChatMessages(prodId);
         }
+
         async function loadChatMessages(prodId) {
             const logsEl = document.getElementById('chatLogs');
             if (!logsEl) return;
@@ -745,6 +772,7 @@
                 logsEl.innerHTML = `<p class="text-xs text-gray-400 text-center">Gagal memuat riwayat chat.</p>`;
             }
         }
+
         function sendChatMessage(prodId) {
             const input = document.getElementById('chatInput');
             const msg = input.value.trim();
@@ -772,6 +800,7 @@
             if (result && result.success === false) throw new Error(result.message || 'Permintaan gagal.');
             return result;
         }
+
         async function apiPost(action, data = {}) {
             const response = await fetch(BASE_URL, {
                 method: 'POST',
@@ -783,6 +812,7 @@
             if (result && result.success === false) throw new Error(result.message || 'Permintaan gagal.');
             return result;
         }
+
         function requireSeller() {
             if (!isSellerLoggedIn) {
                 showMessage('Akses Seller', 'Silakan login sebagai seller terlebih dahulu.');
@@ -791,11 +821,13 @@
             }
             return true;
         }
+
         function safeText(value) {
             return String(value == null ? '' : value).replace(/[&<>"']/g, ch => ({
                 '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
             }[ch]));
         }
+
         function sellerPage(title, body, back = 'showAccount()') {
             const container = document.getElementById('contentContainer');
             window.currentViewFunc = showAccount;
@@ -809,14 +841,17 @@
                     ${body}
                 </div>`;
         }
+
         function sellerField(label, name, value = '', type = 'text', placeholder = '') {
             return `<label class="block space-y-1"><span class="text-xs font-bold text-chocolate">${label}</span>
                 <input name="${safeText(name)}" value="${safeText(value)}" type="${safeText(type)}" placeholder="${safeText(placeholder)}"
                 class="w-full p-3 rounded-xl border border-orange-200 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-pink-200"></label>`;
         }
+
         function sellerButton(label, onclick, extra = '') {
-            return `<button type="button" onclick="${onclick}" class="px-4 py-3 rounded-xl bg-pink-btn text-white font-bold text-xs">${label}</button>`;
+            return `<button type="button" onclick="${onclick}" class="px-4 py-3 rounded-xl bg-pink-btn text-white font-bold text-xs ${extra}">${label}</button>`;
         }
+
         function readFileAsDataURL(file) {
             return new Promise((resolve, reject) => {
                 const reader = new FileReader();
@@ -879,7 +914,7 @@
                         <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
                             <label class="text-xs text-gray-600">Status pesanan
                                 <select id="orderStatus_${index}" class="w-full mt-1 p-2 rounded-lg border border-orange-200 text-xs">
-                                    ${['Menunggu Pembayaran','Diproses','Dikemas','Dikirim','Selesai','Dibatalkan'].map(s => `<option value="${safeText(s)}" ${s === status ? 'selected' : ''}>${safeText(s)}</option>`).join('')}
+                                    ${['Menunggu Pembayaran','Diproses','Dikemas','Dikirim','Selesai','Dibatalkan'].map(s => `<option value="${safeText(s)}" ${s===status?'selected':''}>${safeText(s)}</option>`).join('')}
                                 </select>
                             </label>
                             <label class="text-xs text-gray-600">Nomor resi
@@ -908,6 +943,7 @@
                 container.innerHTML = `<div class="space-y-3"><button onclick="showAccount()" class="text-xs font-bold text-chocolate">← Kembali</button><h2 class="font-bold text-chocolate">Kelola Pesanan</h2><p class="p-3 rounded-xl bg-red-50 text-red-700 text-xs">${safeText(error.message)}</p><button onclick="showManageOrders()" class="px-4 py-3 bg-pink-btn text-white rounded-xl text-xs font-bold">Coba Lagi</button></div>`;
             }
         }
+
         async function saveOrderStatus(orderId, index) {
             const status = document.getElementById(`orderStatus_${index}`)?.value;
             if (!status) return;
@@ -917,6 +953,7 @@
                 showManageOrders();
             } catch (error) { showMessage('Gagal menyimpan status', error.message); }
         }
+
         async function saveOrderResi(orderId, index) {
             const resi = document.getElementById(`orderResi_${index}`)?.value.trim();
             if (!resi) return showMessage('Nomor Resi', 'Masukkan nomor resi terlebih dahulu.');
@@ -926,6 +963,7 @@
                 showManageOrders();
             } catch (error) { showMessage('Gagal menyimpan resi', error.message); }
         }
+
         function printShippingLabelByIndex(index) {
             const o = (window.currentSellerOrders || [])[index];
             if (!o) return showMessage('Cetak Label', 'Data pesanan tidak ditemukan.');
@@ -937,6 +975,7 @@
                 total: Number(o.total || o.grand_total || o.total_price) || 0
             });
         }
+
         function printShippingLabel(order) {
             const popup = window.open('', '_blank', 'width=500,height=700');
             if (!popup) return showMessage('Cetak Label', 'Izinkan pop-up browser untuk mencetak label.');
@@ -974,17 +1013,19 @@
                 <div class="space-y-3 mt-3">${cards}</div>
             `);
         }
+
         async function refreshSellerData() {
             const [p, c, pr] = await Promise.all([apiGet('products'), apiGet('categories'), apiGet('promos')]);
             if (p.success) products = p.data || [];
             if (c.success) categories = c.data || [];
             if (pr.success) promos = pr.data || [];
         }
+
         async function showProductForm(productId = '') {
             if (!requireSeller()) return;
             const product = products.find(p => String(p.id) === String(productId));
             const cats = categories.length ? categories : getDefaultCategories();
-            const categoryOptions = cats.map(c => `<option value="${safeText(c.name)}" ${product?.category === c.name ? 'selected' : ''}>${safeText(c.name)}</option>`).join('');
+            const categoryOptions = cats.map(c => `<option value="${safeText(c.name)}" ${product?.category===c.name?'selected':''}>${safeText(c.name)}</option>`).join('');
             const oldImages = product ? (product.images && product.images.length ? product.images : [product.image]).filter(Boolean) : [];
             
             sellerPage(product ? 'Edit Produk Kue' : 'Tambah Produk Kue Baru', `
@@ -1026,6 +1067,7 @@
                 } catch (error) { showMessage('Gagal menyimpan produk', error.message); }
             });
         }
+
         async function deleteSellerProduct(id) {
             if (!confirm('Yakin ingin menghapus produk ini?')) return;
             try {
@@ -1056,6 +1098,7 @@
                 <div class="space-y-2 mt-3">${rows}</div>
             `);
         }
+
         async function editSellerCategory(id) {
             const item = categories.find(c => String(c.id) === String(id));
             const name = prompt('Nama kategori:', item?.name || '');
@@ -1069,6 +1112,7 @@
                 showManageCategories();
             } catch (error) { showMessage('Gagal menyimpan kategori', error.message); }
         }
+
         async function deleteSellerCategory(id) {
             if (!confirm('Yakin ingin menghapus kategori ini?')) return;
             try {
@@ -1103,6 +1147,7 @@
                 <div class="space-y-3 mt-3">${rows}</div>
             `);
         }
+
         async function editSellerPromo(id) {
             const item = promos.find(p => String(p.id) === String(id));
             const title = prompt('Judul promo:', item?.title || '');
@@ -1139,6 +1184,7 @@
                 } catch (error) { showMessage('Gagal menyimpan promo', error.message); }
             };
         }
+
         async function deleteSellerPromo(id) {
             if (!confirm('Yakin ingin menghapus promo ini?')) return;
             try {
@@ -1182,6 +1228,7 @@
                     <button onclick="showManagePaymentMethods()" class="w-full p-3 bg-pink-btn text-white rounded-xl text-xs font-bold">Coba Lagi</button>`);
             }
         }
+
         async function editSellerPaymentMethod(id = '') {
             if (!requireSeller()) return;
             const item = sellerPaymentMethods.find(m => String(m.id) === String(id));
@@ -1192,20 +1239,22 @@
                     ${sellerField('Nama Metode', 'name', item?.name || '', 'text', 'Contoh: QRIS Utama')}
                     <label class="block space-y-1"><span class="text-xs font-bold text-chocolate">Jenis Pembayaran</span>
                         <select name="type" id="paymentMethodType" class="w-full p-3 border border-orange-200 rounded-xl bg-white text-sm">
-                            ${['QRIS','Transfer Bank','E-Wallet','Tunai / Cash','Kartu Debit/Kredit','Lainnya'].map(t => `<option value="${t}" ${String(item?.type || 'QRIS') === t ? 'selected' : ''}>${t}</option>`).join('')}
+                            ${['QRIS','Transfer Bank','E-Wallet','Tunai / Cash','Kartu Debit/Kredit','Lainnya'].map(t => `<option value="${t}" ${item?.type === t ? 'selected' : ''}>${t}</option>`).join('')}
                         </select>
                     </label>
                     <label class="block space-y-1"><span class="text-xs font-bold text-chocolate">Instruksi / Detail Pembayaran</span>
                         <textarea name="detail" rows="3" class="w-full p-3 border border-orange-200 rounded-xl text-sm" placeholder="Nomor rekening, nama pemilik, atau instruksi">${safeText(item?.detail || '')}</textarea>
                     </label>
-                    <div class="space-y-1"><label for="paymentMethodImage" class="text-xs font-bold text-chocolate">Gambar QRIS / Logo (opsional)</label>
+                    <div class="space-y-1">
+                        <label for="paymentMethodImage" class="text-xs font-bold text-chocolate">Gambar QRIS / Logo (Opsional)</label>
                         <input id="paymentMethodImage" type="file" accept="image/*" class="w-full text-xs">
                         <p class="text-[10px] text-gray-500">Jika mengedit tanpa memilih gambar baru, gambar lama tetap digunakan.</p>
-                        ${item?.image_url ? `<img src="${safeText(item.image_url)}" class="w-32 h-32 object-contain border border-orange-100 rounded-xl mt-2">` : ''}
+                        ${item?.image_url ? `<img src="${safeText(item.image_url)}" class="w-32 h-32 object-contain border border-orange-100 rounded-xl mt-2 bg-white">` : ''}
                     </div>
                     <button type="submit" class="w-full py-3 rounded-xl bg-pink-btn text-white font-bold text-sm">💾 Simpan Metode</button>
                     <button type="button" onclick="showManagePaymentMethods()" class="w-full py-3 rounded-xl border border-orange-200 text-chocolate font-bold text-sm">Batal</button>
                 </form>`);
+            
             document.getElementById('paymentMethodForm').addEventListener('submit', async event => {
                 event.preventDefault();
                 const form = event.currentTarget;
@@ -1214,15 +1263,29 @@
                 const type = String(fd.get('type') || 'QRIS');
                 const detail = String(fd.get('detail') || '').trim();
                 if (!name) return showMessage('Metode Pembayaran', 'Nama metode wajib diisi.');
-                const file = document.getElementById('paymentMethodImage').files?.[0];
+                
+                const fileInput = document.getElementById('paymentMethodImage');
+                let image_base64 = '';
+                if (fileInput && fileInput.files && fileInput.files[0]) {
+                    image_base64 = await readFileAsDataURL(fileInput.files[0]);
+                }
+                
                 try {
-                    const image_base64 = file ? await readFileAsDataURL(file) : '';
-                    const result = await apiPost('save_payment_method', { id: String(fd.get('id') || ''), name, type, detail, image_base64 });
+                    const result = await apiPost('save_payment_method', { 
+                        id: String(fd.get('id') || ''), 
+                        name, 
+                        type, 
+                        detail, 
+                        image_base64 
+                    });
                     showMessage('Metode Pembayaran', result.message || 'Metode pembayaran berhasil disimpan.');
                     await showManagePaymentMethods();
-                } catch (error) { showMessage('Gagal menyimpan metode pembayaran', error.message); }
+                } catch (error) { 
+                    showMessage('Gagal menyimpan metode pembayaran', error.message); 
+                }
             });
         }
+
         async function deleteSellerPaymentMethod(id) {
             if (!requireSeller()) return;
             const item = sellerPaymentMethods.find(m => String(m.id) === String(id));
@@ -1259,6 +1322,7 @@
             `);
             renderPOSItems();
         }
+
         function addPOSItem() {
             const id = document.getElementById('posProduct')?.value;
             const p = products.find(x => String(x.id) === String(id));
@@ -1268,6 +1332,7 @@
             else posCart.push({ product: p, quantity: 1 });
             renderPOSItems();
         }
+
         function updatePOSQty(id, delta) {
             const item = posCart.find(x => String(x.product.id) === String(id));
             if (!item) return;
@@ -1275,7 +1340,9 @@
             if (item.quantity <= 0) posCart = posCart.filter(x => x !== item);
             renderPOSItems();
         }
+
         function clearPOSCart() { posCart = []; renderPOSItems(); }
+
         function renderPOSItems() {
             const el = document.getElementById('posItems');
             if (!el) return;
@@ -1292,6 +1359,7 @@
             document.getElementById('posTax').textContent = formatRupiah(tax);
             document.getElementById('posTotal').textContent = formatRupiah(subtotal + tax);
         }
+
         async function submitPOSTransaction() {
             if (!posCart.length) return showMessage('POS Kasir', 'Keranjang kasir masih kosong.');
             const subtotal = posCart.reduce((sum, i) => sum + Number(i.product.price) * i.quantity, 0);
@@ -1315,6 +1383,7 @@
                 posCart = [];
             } catch (error) { showMessage('Transaksi Kasir Gagal', error.message); }
         }
+
         function downloadReceiptText(content) {
             const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
             const url = URL.createObjectURL(blob);
@@ -1337,7 +1406,7 @@
                     else if (String(c.timestamp) > String(buyers[id].time)) buyers[id] = { id, name: c.senderName || id, last: c.message || '', time: c.timestamp || '' };
                 });
                 const rows = Object.values(buyers).map(b => `
-                    <button onclick="showSellerChat('${safeText(b.id)}', '${safeText(b.name)}')" class="w-full text-left bg-white border border-orange-100 rounded-xl p-3">
+                    <button onclick="showSellerChat('${safeText(b.id)}','${safeText(b.name)}')" class="w-full text-left bg-white border border-orange-100 rounded-xl p-3">
                         <p class="font-bold text-sm text-chocolate">${safeText(b.name)}</p>
                         <p class="text-xs text-gray-500 mt-1">${safeText(b.last)}</p>
                         <p class="text-[10px] text-gray-400">${safeText(b.time)}</p>
@@ -1348,6 +1417,7 @@
                 sellerPage('Kelola Pesan Pembeli', `<p class="p-3 bg-red-50 text-red-700 rounded-xl text-xs">${safeText(error.message)}</p>`);
             }
         }
+
         async function showSellerChat(buyerId, buyerName) {
             if (!requireSeller()) return;
             window.currentViewFunc = () => showSellerChat(buyerId, buyerName);
@@ -1409,6 +1479,7 @@
                 `;
             } catch (error) { showMessage('Pengiriman', error.message); }
         }
+
         async function saveShippingSettingsUI(names) {
             try {
                 const couriers = names.map((name, i) => ({ name, active: !!document.getElementById(`shipping_${i}`)?.checked }));
@@ -1433,4 +1504,3 @@
     </script>
 </body>
 </html>
-
