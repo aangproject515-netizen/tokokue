@@ -37,14 +37,12 @@
             <button onclick="showCart()" class="text-xl p-1 relative" title="Keranjang">🛒</button>
         </div>
     </header>
-
     <!-- MAIN DYNAMIC CONTENT CONTAINER -->
     <main id="contentContainer" class="flex-1 max-w-2xl w-full mx-auto p-4">
         <div class="text-center py-10">
             <p class="text-xs text-gray-400 font-bold">Sedang memuat kue-kue manis...</p>
         </div>
     </main>
-
     <!-- BOTTOM NAVIGATION BAR -->
     <nav class="fixed bottom-0 left-0 right-0 max-w-2xl mx-auto bg-white border-t border-gray-200 h-16 flex justify-around items-center z-50 shadow-lg px-2">
         <button onclick="setActiveNav('home'); showHome()" class="flex flex-col items-center flex-1 text-pink-custom" id="navHome">
@@ -68,7 +66,6 @@
             <span class="text-[10px]">Akun</span>
         </button>
     </nav>
-
     <!-- JAVASCRIPT LOGIC & API INTEGRATION -->
     <script>
         const BASE_URL = "https://script.google.com/macros/s/AKfycbxUkfdInvxdsazNLMhCPJlWZsYCTVM9Kmwap24bCN37Rb4snwlyCzsPds74osb5dGQc0w/exec";
@@ -76,6 +73,7 @@
         let categories = [];
         let promos = [];
         let shippingSettings = [];
+        let bonusRulesList = [];
         let favorites = JSON.parse(localStorage.getItem('favs') || '[]');
         let cart = JSON.parse(localStorage.getItem('cart') || '[]');
         let isSellerLoggedIn = localStorage.getItem('is_seller') === 'true';
@@ -89,7 +87,6 @@
         })();
         let currentUserName = localStorage.getItem('user_name') || 'Pembeli Web';
         let currentUserEmail = localStorage.getItem('user_email') || '';
-
         const PROVINCES_CITIES = {
             "DKI Jakarta": ["Jakarta Timur", "Jakarta Pusat", "Jakarta Selatan", "Jakarta Barat", "Jakarta Utara"],
             "Jawa Barat": ["Kota Bandung", "Kota Bekasi", "Kota Depok", "Kota Bogor", "Kabupaten Bandung", "Cimahi", "Karawang"],
@@ -97,9 +94,39 @@
             "Jawa Tengah": ["Semarang", "Surakarta", "Magelang", "Tegal", "Pekalongan"],
             "D.I. Yogyakarta": ["Yogyakarta", "Sleman", "Bantul", "Kulon Progo", "Gunungkidul"],
             "Jawa Timur": ["Surabaya", "Malang", "Sidoarjo", "Kediri", "Jember"],
-            "Bali": ["Denpasar", "Badung", "Gianyar", "Buleleng"]
+            "Bali": ["Denpasar", "Badung", "Gianyar", "Buleleng"],
+            "Nusa Tenggara Barat (NTB)": ["Mataram", "Lombok"],
+            "Nusa Tenggara Timur (NTT)": ["Kupang"],
+            "Aceh": ["Banda Aceh"],
+            "Sumatera Utara": ["Medan"],
+            "Sumatera Barat": ["Padang"],
+            "Riau": ["Pekanbaru"],
+            "Kepulauan Riau": ["Batam"],
+            "Jambi": ["Jambi"],
+            "Sumatera Selatan": ["Palembang"],
+            "Kepulauan Bangka Belitung": ["Pangkal Pinang"],
+            "Bengkulu": ["Bengkulu"],
+            "Lampung": ["Bandar Lampung"],
+            "Kalimantan Barat": ["Pontianak"],
+            "Kalimantan Tengah": ["Palangka Raya"],
+            "Kalimantan Selatan": ["Banjarmasin"],
+            "Kalimantan Timur": ["Samarinda", "Balikpapan"],
+            "Kalimantan Utara": ["Tarakan"],
+            "Sulawesi Utara": ["Manado"],
+            "Sulawesi Tengah": ["Palu"],
+            "Sulawesi Selatan": ["Makassar"],
+            "Sulawesi Tenggara": ["Kendari"],
+            "Gorontalo": ["Gorontalo"],
+            "Sulawesi Barat": ["Mamuju"],
+            "Maluku": ["Ambon"],
+            "Maluku Utara": ["Ternate"],
+            "Papua": ["Jayapura"],
+            "Papua Barat": ["Manokwari"],
+            "Papua Selatan": ["Merauke"],
+            "Papua Tengah": ["Nabire"],
+            "Papua Pegunungan": ["Wamena"],
+            "Papua Barat Daya": ["Sorong"]
         };
-
         function formatRupiah(amount) {
             return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(amount || 0).replace(',00', '');
         }
@@ -111,19 +138,20 @@
                 '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
             }[ch]));
         }
-
         async function loadAllData() {
             try {
-                const [resProd, resCat, resPromo, resShip] = await Promise.all([
+                const [resProd, resCat, resPromo, resShip, resBonus] = await Promise.all([
                     fetch(`${BASE_URL}?action=products`).then(r => r.json()).catch(() => null),
                     fetch(`${BASE_URL}?action=categories`).then(r => r.json()).catch(() => null),
                     fetch(`${BASE_URL}?action=promos`).then(r => r.json()).catch(() => null),
-                    fetch(`${BASE_URL}?action=get_shipping_settings`).then(r => r.json()).catch(() => null)
+                    fetch(`${BASE_URL}?action=get_shipping_settings`).then(r => r.json()).catch(() => null),
+                    fetch(`${BASE_URL}?action=get_bonus_products`).then(r => r.json()).catch(() => null)
                 ]);
                 if (resProd && resProd.success) products = resProd.data || [];
                 if (resCat && resCat.success) categories = resCat.data || [];
                 if (resPromo && resPromo.success) promos = resPromo.data || [];
                 if (resShip && resShip.success) shippingSettings = resShip.data || [];
+                if (resBonus && resBonus.success) bonusRulesList = resBonus.data || [];
             } catch (e) {
                 console.warn("Gagal memuat beberapa data dari server:", e);
             } finally {
@@ -131,7 +159,6 @@
                 startNotificationLoop();
             }
         }
-
         // Timer Notifikasi 5 Menit Sekali
         function startNotificationLoop() {
             setInterval(() => {
@@ -140,7 +167,6 @@
                 console.log("Notifikasi diperbarui: Cek promo & status pesanan terbaru!");
             }, 300000); // 5 menit
         }
-
         function setActiveNav(nav) {
             ['Home', 'Category', 'Cart', 'Promo', 'Account'].forEach(n => {
                 const btn = document.getElementById('nav' + n);
@@ -155,7 +181,6 @@
                 active.classList.add('text-pink-custom', 'font-bold');
             }
         }
-
         // ================= 1. BERANDA =================
         function showHome() {
             window.currentViewFunc = showHome;
@@ -193,14 +218,12 @@
             `;
             container.innerHTML = html;
         }
-
         function filterHomeProducts(keyword) {
             const grid = document.getElementById('productGrid');
             const q = String(keyword || '').trim().toLowerCase();
             const filtered = products.filter(p => String(p.status || 'active').toLowerCase() === 'active' && (String(p.name || '').toLowerCase().includes(q) || String(p.description || '').toLowerCase().includes(q) || String(p.category || '').toLowerCase().includes(q)));
             grid.innerHTML = renderProductCards(filtered);
         }
-
         function renderProductCards(prods) {
             if (!prods.length) return `<p class="col-span-2 text-center text-gray-400 py-6 text-xs">Belum ada produk kue.</p>`;
             return prods.map(p => {
@@ -224,7 +247,6 @@
                 `;
             }).join('');
         }
-
         // ================= 2. DETAIL PRODUK & CUSTOM VISUALIZER =================
         let rawProductReviews = [];
         async function showProductDetail(productId) {
@@ -237,11 +259,9 @@
             window.currentDetailProductId = p.id;
             currentQty = 1;
             const imagesList = p.images && p.images.length ? p.images : [p.image];
-
             const customSizesOpt = (p.custom_sizes || "Diameter 16cm (Standar), Diameter 20cm (+Rp 50.000), Diameter 24cm (+Rp 100.000)").split(',');
             const customFlavorsOpt = (p.custom_flavors || "Cokelat Klasik, Vanilla Sponge, Red Velvet, Matcha Green Tea").split(',');
             const customCreamsOpt = (p.custom_creams || "Pink Pastel, Blue Pastel, Purple Lilac, Yellow Butter").split(',');
-
             container.innerHTML = `
                 <div class="space-y-4 pb-12">
                     <button onclick="showHome()" class="text-sm font-bold text-chocolate flex items-center">← Kembali</button>
@@ -254,7 +274,6 @@
                         ${activePromo ? `<span class="text-xs bg-pink-100 text-pink-custom px-2 py-0.5 rounded-full font-bold">Diskon ${activePromo.discount}%</span>` : ''}
                     </div>
                     <p class="text-xs text-gray-500">⭐ ${p.rating ? p.rating.toFixed(1) : '0.0'} / 5.0 • ${p.sold_count || 0} Terjual • Stok: ${p.stock}</p>
-
                     <!-- CUSTOM CAKE VISUALIZER INTERAKTIF -->
                     ${p.is_customable !== false ? `
                         <div class="bg-orange-50 border border-orange-200 p-4 rounded-2xl space-y-3">
@@ -267,7 +286,6 @@
                                 <p id="vizSize" class="text-[10px] text-gray-500">${safeText(customSizesOpt[0])}</p>
                                 <div id="vizMessage" class="text-xs font-bold text-pink-custom italic bg-pink-50 p-2 rounded-lg border border-pink-100">"Ucapan Selamat..."</div>
                             </div>
-
                             <div class="space-y-2">
                                 <label class="block text-xs font-bold text-chocolate">Pilih Ukuran Kue:
                                     <select id="dtlSize" onchange="updateVisualizer()" class="w-full mt-1 p-2 bg-white border border-orange-200 rounded-xl text-xs">
@@ -290,7 +308,6 @@
                             </div>
                         </div>
                     ` : ''}
-
                     <button onclick="showChatWindow('${p.id}')" class="w-full py-2.5 bg-white border border-orange-200 text-chocolate font-bold text-xs rounded-xl shadow-sm">
                         💬 Tanya Seller Mengenai Produk Ini
                     </button>
@@ -298,7 +315,6 @@
                         <h3 class="font-bold text-chocolate text-sm mb-1">Deskripsi Kue</h3>
                         <p class="text-xs text-gray-600 bg-white p-3 rounded-xl border border-orange-100 leading-relaxed">${safeText(p.description) || 'Tidak ada deskripsi produk.'}</p>
                     </div>
-
                     <!-- ULASAN DENGAN FILTER & FOTO -->
                     <div>
                         <div class="flex justify-between items-center mb-2">
@@ -317,7 +333,6 @@
                             ✍ Beri Ulasan & Rating Kue Ini
                         </button>
                     </div>
-
                     <!-- PEMILIHAN QUANTITY & ACTION BUTTONS -->
                     <div class="flex items-center space-x-2 pt-4 border-t border-orange-100">
                         <div class="flex items-center border border-orange-200 rounded-xl bg-white">
@@ -336,22 +351,18 @@
             `;
             loadReviews(p.id);
         }
-
         function updateVisualizer() {
             const size = document.getElementById('dtlSize')?.value || '';
             const flavor = document.getElementById('dtlFlavor')?.value || '';
             const cream = document.getElementById('dtlCream')?.value || '';
             const msg = document.getElementById('dtlMessage')?.value || '';
-
             const vizBox = document.getElementById('cakeVisualizerBox');
             const vizFlavor = document.getElementById('vizFlavor');
             const vizSize = document.getElementById('vizSize');
             const vizMsg = document.getElementById('vizMessage');
-
-            if (vizFlavor) vizFlavor.textContent = `${flavor} (${cream})`;
+            if (vizFlavor) vizFlavor.textContent = flavor;
             if (vizSize) vizSize.textContent = size;
             if (vizMsg) vizMsg.textContent = msg ? `"${msg}"` : `"Ucapan Selamat..."`;
-
             if (vizBox) {
                 if (cream.toLowerCase().includes('pink')) vizBox.style.backgroundColor = '#FFF0F3';
                 else if (cream.toLowerCase().includes('blue')) vizBox.style.backgroundColor = '#F0F8FF';
@@ -360,7 +371,6 @@
                 else vizBox.style.backgroundColor = '#FFFFFF';
             }
         }
-
         let currentQty = 1;
         function adjustQty(val) {
             const currentProduct = products.find(item => item.id === (window.currentDetailProductId || ''));
@@ -369,7 +379,6 @@
             const el = document.getElementById('qtyVal');
             if (el) el.innerText = currentQty;
         }
-
         async function loadReviews(prodId) {
             const listEl = document.getElementById('reviewsList');
             if (!listEl) return;
@@ -386,22 +395,18 @@
                 listEl.innerHTML = `<p class="text-xs text-gray-400 italic">Belum ada ulasan untuk kue ini.</p>`;
             }
         }
-
         function applyReviewFilter() {
             const filter = document.getElementById('reviewFilter')?.value || 'ALL';
             const listEl = document.getElementById('reviewsList');
             if (!listEl) return;
-
             let filtered = [...rawProductReviews];
             if (filter === 'WITH_PHOTO') filtered = filtered.filter(r => r.imageUrl && r.imageUrl.length > 0);
             else if (filter === 'HIGH_RATING') filtered = filtered.filter(r => Number(r.rating) === 5);
             else if (filter === 'LOW_RATING') filtered = filtered.filter(r => Number(r.rating) <= 3);
-
             if (!filtered.length) {
                 listEl.innerHTML = `<p class="text-xs text-gray-400 italic">Tidak ada ulasan sesuai filter.</p>`;
                 return;
             }
-
             listEl.innerHTML = filtered.map(r => `
                 <div class="bg-white p-3 rounded-xl border border-orange-100 space-y-1">
                     <div class="flex justify-between items-center text-xs">
@@ -413,7 +418,6 @@
                 </div>
             `).join('');
         }
-
         function openReviewDialog(prodId) {
             const rating = prompt("Beri Rating (1 - 5):", "5");
             if (!rating) return;
@@ -428,7 +432,6 @@
                 loadReviews(prodId);
             });
         }
-
         // ================= 3. KATEGORI & PRODUK LIST =================
         function showCategory() {
             window.currentViewFunc = showCategory;
@@ -447,7 +450,6 @@
                 </div>
             `;
         }
-
         function showProductList(catName) {
             window.currentViewFunc = () => showProductList(catName);
             const container = document.getElementById('contentContainer');
@@ -462,8 +464,18 @@
                 </div>
             `;
         }
-
         // ================= 4. KERANJANG & CHECKOUT =================
+        function extractExtraPrice(option) {
+            try {
+                const match = String(option).match(/\+\s*(?:rp)?\s*([\d\.,]+)/i);
+                if (match) {
+                    const numStr = match[1].replace(/\./g, '').replace(/,/g, '');
+                    return parseFloat(numStr) || 0.0;
+                }
+            } catch (e) {}
+            return 0.0;
+        }
+        
         function addToCart(prodId) {
             const p = products.find(item => item.id === prodId);
             if (!p || p.stock <= 0) return showMessage('Stok', 'Stok habis.');
@@ -471,11 +483,10 @@
             if (exist) {
                 exist.quantity = Math.min(exist.quantity + 1, p.stock);
             } else {
-                cart.push({ product: p, quantity: 1, selectedSize: "Standar", selectedFlavor: "Standar", customMessage: "", creamColor: "Pink Pastel" });
+                cart.push({ product: p, quantity: 1, selectedSize: "Standar", selectedFlavor: "Standar", customMessage: "", creamColor: "Pink Pastel", extraPrice: 0.0 });
             }
             saveCartAndNotify(p.name);
         }
-
         function addToCartQty(prodId) {
             const p = products.find(item => item.id === prodId);
             if (!p) return;
@@ -483,17 +494,16 @@
             const flavor = document.getElementById('dtlFlavor')?.value || 'Standar';
             const cream = document.getElementById('dtlCream')?.value || 'Pink Pastel';
             const msg = document.getElementById('dtlMessage')?.value || '';
-
+            const extra = extractExtraPrice(size) + extractExtraPrice(flavor) + extractExtraPrice(cream);
             const exist = cart.find(item => item.product.id === prodId && item.selectedSize === size && item.selectedFlavor === flavor);
             if (exist) {
                 exist.quantity = Math.min(exist.quantity + currentQty, Number(p.stock) || 0);
             } else {
-                cart.push({ product: p, quantity: Math.min(currentQty, Number(p.stock) || 0), selectedSize: size, selectedFlavor: flavor, customMessage: msg, creamColor: cream });
+                cart.push({ product: p, quantity: Math.min(currentQty, Number(p.stock) || 0), selectedSize: size, selectedFlavor: flavor, customMessage: msg, creamColor: cream, extraPrice: extra });
             }
             currentQty = 1;
             saveCartAndNotify(p.name);
         }
-
         function directCheckout(prodId) {
             const p = products.find(item => item.id === prodId);
             if (!p) return;
@@ -501,16 +511,14 @@
             const flavor = document.getElementById('dtlFlavor')?.value || 'Standar';
             const cream = document.getElementById('dtlCream')?.value || 'Pink Pastel';
             const msg = document.getElementById('dtlMessage')?.value || '';
-
-            const tempItem = { product: p, quantity: currentQty, selectedSize: size, selectedFlavor: flavor, customMessage: msg, creamColor: cream, selected: true };
+            const extra = extractExtraPrice(size) + extractExtraPrice(flavor) + extractExtraPrice(cream);
+            const tempItem = { product: p, quantity: currentQty, selectedSize: size, selectedFlavor: flavor, customMessage: msg, creamColor: cream, extraPrice: extra, selected: true };
             showCheckout([tempItem]);
         }
-
         function saveCartAndNotify(name) {
             localStorage.setItem('cart', JSON.stringify(cart));
             showMessage('Keranjang', `${name} berhasil ditambahkan ke keranjang!`);
         }
-
         function showCart() {
             window.currentViewFunc = showCart;
             setActiveNav('cart');
@@ -527,7 +535,7 @@
             }
             cart.forEach(item => { if (item.selected === undefined) item.selected = true; });
             const selectedCart = cart.filter(item => item.selected !== false);
-            const subtotal = selectedCart.reduce((sum, item) => sum + (item.product.price * item.quantity), 0);
+            const subtotal = selectedCart.reduce((sum, item) => sum + ((item.product.price + (item.extraPrice || 0)) * item.quantity), 0);
             container.innerHTML = `
                 <div class="space-y-4 pb-16">
                     <h2 class="font-bold text-chocolate text-lg">Keranjang Saya</h2>
@@ -543,7 +551,7 @@
                                     <h4 class="font-bold text-chocolate text-xs line-clamp-1">${safeText(item.product.name)}</h4>
                                     <p class="text-[10px] text-gray-500">${safeText(item.selectedSize)} • ${safeText(item.selectedFlavor)}</p>
                                     ${item.customMessage ? `<p class="text-[10px] text-pink-custom italic">"${safeText(item.customMessage)}"</p>` : ''}
-                                    <p class="text-xs text-pink-custom font-bold mt-1">${formatRupiah(item.product.price)}</p>
+                                    <p class="text-xs text-pink-custom font-bold mt-1">${formatRupiah(item.product.price + (item.extraPrice || 0))}</p>
                                     <div class="flex items-center space-x-2 mt-2">
                                         <button onclick="updateCartQty(${idx}, -1)" class="w-6 h-6 bg-orange-100 rounded-md font-bold text-chocolate text-xs">−</button>
                                         <span class="text-xs font-bold">${item.quantity}</span>
@@ -559,13 +567,17 @@
                             <span>${formatRupiah(subtotal)}</span>
                         </div>
                     </div>
-                    <button onclick="showCheckout()" class="w-full py-3 bg-pink-btn text-white font-bold text-sm rounded-xl shadow-md">
+                    <button onclick="triggerCheckoutFlow()" class="w-full py-3 bg-pink-btn text-white font-bold text-sm rounded-xl shadow-md">
                         Proses Checkout Pro →
                     </button>
                 </div>
             `;
         }
-
+        function triggerCheckoutFlow() {
+            const selectedCart = cart.filter(item => item.selected !== false);
+            if (!selectedCart.length) { showMessage('Keranjang', 'Pilih minimal satu produk untuk checkout.'); return; }
+            showCheckout(selectedCart);
+        }
         function toggleCartItem(idx, checked) {
             if (!cart[idx]) return;
             cart[idx].selected = !!checked;
@@ -584,9 +596,33 @@
             localStorage.setItem('cart', JSON.stringify(cart));
             showCart();
         }
-
         let checkoutSelectedItems = [];
         let currentCalculatedOngkir = 15000;
+        let currentVoucherDiscount = 0;
+        let appliedVoucherCode = "";
+        let finalBonusItems = [];
+        
+        function getFallbackRegionalOngkir(prov, city) {
+            const p = prov.toLowerCase();
+            const c = city.toLowerCase();
+            if (p === "dki jakarta") return c.includes("jakarta timur") ? 10000.0 : 12000.0;
+            if (p === "jawa barat") return 15000.0;
+            if (p === "banten") return 16000.0;
+            if (p === "jawa tengah" || p === "d.i. yogyakarta") return 22000.0;
+            if (p === "jawa timur" || p === "lampung") return 25000.0;
+            if (p === "sumatera selatan") return 30000.0;
+            if (p === "jambi" || p === "kepulauan bangka belitung") return 32000.0;
+            if (p === "bali" || p === "sumatera utara" || p === "sumatera barat" || p === "riau" || p === "bengkulu") return 35000.0;
+            if (p === "kepulauan riau") return 38000.0;
+            if (p === "nusa tenggara barat (ntb)" || p === "aceh" || p === "kalimantan barat") return 40000.0;
+            if (p === "kalimantan tengah" || p === "kalimantan selatan") return 42000.0;
+            if (p === "nusa tenggara timur (ntt)" || p === "kalimantan timur" || p === "sulawesi selatan") return 45000.0;
+            if (p === "sulawesi utara" || p === "sulawesi tengah" || p === "sulawesi tenggara" || p === "gorontalo" || p === "sulawesi barat") return 48000.0;
+            if (p === "kalimantan utara") return 50000.0;
+            if (p === "maluku" || p === "maluku utara") return 65000.0;
+            if (p === "papua pegunungan") return 80000.0;
+            return 75000.0;
+        }
 
         function showCheckout(customItems) {
             window.currentViewFunc = showCheckout;
@@ -595,11 +631,36 @@
             const savedPhone = localStorage.getItem('cust_phone') || '';
             const savedAddress = localStorage.getItem('cust_address') || '';
             const savedBenchmark = localStorage.getItem('cust_benchmark') || '';
-
             checkoutSelectedItems = customItems || cart.filter(item => item.selected !== false);
             if (!checkoutSelectedItems.length) { showMessage('Keranjang', 'Pilih minimal satu produk untuk checkout.'); showCart(); return; }
             
-            const subtotal = checkoutSelectedItems.reduce((sum, item) => sum + (item.product.price * item.quantity), 0);
+            // Proses Bonus
+            finalBonusItems = [];
+            bonusRulesList.forEach(rule => {
+                if (String(rule.status || 'active').toLowerCase() === 'active') {
+                    checkoutSelectedItems.forEach(item => {
+                        if (item.product.id === rule.trigger_product_id) {
+                            const bp = products.find(p => p.id === rule.bonus_product_id);
+                            if (bp) {
+                                finalBonusItems.push({
+                                    product: { ...bp, price: 0 },
+                                    quantity: item.quantity,
+                                    selectedSize: "Bonus Gratis",
+                                    selectedFlavor: "-",
+                                    customMessage: `Bonus pembelian ${item.product.name}`,
+                                    creamColor: "-",
+                                    extraPrice: 0,
+                                    parentProductId: item.product.id
+                                });
+                            }
+                        }
+                    });
+                }
+            });
+
+            currentVoucherDiscount = 0;
+            appliedVoucherCode = "";
+            const subtotal = checkoutSelectedItems.reduce((sum, item) => sum + ((item.product.price + (item.extraPrice || 0)) * item.quantity), 0);
             
             container.innerHTML = `
                 <div class="space-y-4 pb-16">
@@ -616,42 +677,55 @@
                                 <option value="">-- Pilih Provinsi --</option>
                                 ${Object.keys(PROVINCES_CITIES).map(p => `<option value="${p}">${p}</option>`).join('')}
                             </select>
-                            <select id="chkCity" onchange="calculateLocalOngkir()" class="p-2.5 text-xs border border-orange-200 rounded-xl bg-white">
+                            <select id="chkCity" onchange="updateEstimateAndOngkir()" class="p-2.5 text-xs border border-orange-200 rounded-xl bg-white">
                                 <option value="">-- Pilih Kota --</option>
                             </select>
                         </div>
-
                         <textarea id="chkAddress" placeholder="Alamat Pengiriman Detail (Jalan, No Rumah, RT/RW)" class="w-full p-2.5 text-xs border border-orange-200 rounded-xl">${safeText(savedAddress)}</textarea>
                         
                         <!-- PATOKAN RUMAH -->
                         <input type="text" id="chkBenchmark" placeholder="Patokan Rumah (Contoh: Samping Masjid Al-Barokah / Pagar Hitam)" value="${safeText(savedBenchmark)}" class="w-full p-2.5 text-xs border border-orange-200 rounded-xl">
                     </div>
-
                     <!-- PENJADWALAN TANGGAL & WAKTU PENGIRIMAN -->
                     <div class="bg-white p-4 rounded-2xl border border-orange-100 space-y-3">
                         <h3 class="font-bold text-chocolate text-xs">📅 Penjadwalan Tanggal & Waktu Pengiriman Kue</h3>
                         <div class="grid grid-cols-2 gap-2">
                             <div>
                                 <label class="text-[10px] text-gray-500 font-bold block mb-1">Tanggal Pengiriman:</label>
-                                <input type="date" id="chkDeliveryDate" class="w-full p-2 text-xs border border-orange-200 rounded-xl">
+                                <input type="date" id="chkDeliveryDate" onchange="updateEstimateAndOngkir()" class="w-full p-2 text-xs border border-orange-200 rounded-xl">
                             </div>
                             <div>
                                 <label class="text-[10px] text-gray-500 font-bold block mb-1">Jam Pengiriman:</label>
-                                <input type="time" id="chkDeliveryTime" class="w-full p-2 text-xs border border-orange-200 rounded-xl">
+                                <input type="time" id="chkDeliveryTime" onchange="updateEstimateAndOngkir()" class="w-full p-2 text-xs border border-orange-200 rounded-xl">
                             </div>
                         </div>
                     </div>
-
+                    <!-- ESTIMASI TIBA & KURIR -->
                     <div class="bg-white p-4 rounded-2xl border border-orange-100 space-y-3">
-                        <h3 class="font-bold text-chocolate text-xs">Kurir & Pembayaran</h3>
-                        <select id="chkCourier" onchange="calculateLocalOngkir()" class="w-full p-2.5 text-xs border border-orange-200 rounded-xl bg-white">
+                        <h3 class="font-bold text-chocolate text-xs">Pilih Kurir Toko</h3>
+                        <select id="chkCourier" onchange="updateEstimateAndOngkir()" class="w-full p-2.5 text-xs border border-orange-200 rounded-xl bg-white">
                             <option value="JNE Express">JNE Express</option>
                             <option value="J&T Express">J&T Express</option>
                             <option value="SiCepat Express">SiCepat Express</option>
                             <option value="GrabExpress">GrabExpress</option>
                             <option value="GoSend">GoSend</option>
                         </select>
-                        
+                        <div id="estimateInfoCard" class="hidden flex-col p-3 bg-orange-50 border border-orange-100 rounded-xl space-y-1">
+                            <p id="estimateText" class="text-xs font-bold text-chocolate"></p>
+                            <p id="warningText" class="hidden text-[10px] text-red-500 font-bold mt-1">⚠️ Perhatian: Pengiriman ekspedisi reguler ke luar kota lebih disarankan untuk kue kering (cookies) atau roti tahan lama.</p>
+                        </div>
+                    </div>
+                    
+                    <div class="bg-white p-4 rounded-2xl border border-orange-100 space-y-3">
+                        <h3 class="font-bold text-chocolate text-xs">Sistem Voucher / Kupon Diskon</h3>
+                        <div class="flex space-x-2">
+                            <input type="text" id="chkVoucher" placeholder="Masukkan Kode Voucher" class="flex-1 p-2.5 text-xs border border-orange-200 rounded-xl">
+                            <button onclick="applyVoucherCheckout()" class="px-4 py-2 bg-pink-btn text-white text-xs font-bold rounded-xl">Gunakan</button>
+                        </div>
+                    </div>
+
+                    <div class="bg-white p-4 rounded-2xl border border-orange-100 space-y-3">
+                        <h3 class="font-bold text-chocolate text-xs">Metode Pembayaran</h3>
                         <select id="chkPayment" onchange="togglePaymentProof(this.value)" class="w-full p-2.5 text-xs border border-orange-200 rounded-xl bg-white">
                             <option value="">Memuat metode pembayaran...</option>
                         </select>
@@ -663,22 +737,17 @@
                             <input type="file" id="proofFile" accept="image/*" class="w-full text-xs mt-1">
                         </label>
                     </div>
-
-                    <div class="bg-white p-4 rounded-2xl border border-orange-100 space-y-1 text-xs">
-                        <div class="flex justify-between"><span>Subtotal:</span><span id="txtSubtotal">${formatRupiah(subtotal)}</span></div>
-                        <div class="flex justify-between"><span>Ongkos Kirim (Sheet SHIPPING):</span><span id="txtOngkir">${formatRupiah(currentCalculatedOngkir)}</span></div>
-                        <hr class="my-1">
-                        <div class="flex justify-between font-bold text-pink-custom text-sm"><span>Grand Total:</span><span id="txtGrandTotal">${formatRupiah(subtotal + currentCalculatedOngkir)}</span></div>
+                    <div class="bg-white p-4 rounded-2xl border border-orange-100 space-y-1 text-xs" id="summaryContainer">
+                        <!-- Summary diisi otomatis -->
                     </div>
-
                     <button onclick="submitOrderProcess(${subtotal})" class="w-full py-3 bg-pink-btn text-white font-bold text-sm rounded-xl shadow-md">
                         Konfirmasi & Bayar Sekarang
                     </button>
                 </div>
             `;
             loadCheckoutPaymentMethods();
+            recalculateSummaryUI();
         }
-
         function updateCityOptions() {
             const prov = document.getElementById('chkProv')?.value || '';
             const citySelect = document.getElementById('chkCity');
@@ -689,35 +758,111 @@
                     citySelect.innerHTML += `<option value="${c}">${c}</option>`;
                 });
             }
-            calculateLocalOngkir();
+            updateEstimateAndOngkir();
+        }
+        
+        function calculateEstimation(prov, city, courier, date, time) {
+            if (!date || !time) return "";
+            const isInstant = courier.toLowerCase().includes("grabexpress") || courier.toLowerCase().includes("gosend");
+            if (isInstant) {
+                let h = parseInt(time.split(":")[0]) || 0;
+                let h1 = (h + 1) % 24;
+                let h2 = (h + 2) % 24;
+                let h1Str = h1.toString().padStart(2, '0') + ":00";
+                let h2Str = h2.toString().padStart(2, '0') + ":00";
+                return `⚡ Estimasi Tiba: ${date} (Pukul ${h1Str} - ${h2Str} WIB) • Sampai di hari yang sama (Aman untuk Kue Basah/Tart)`;
+            } else {
+                let d = new Date(date);
+                let estStr = "";
+                let p = prov.toLowerCase();
+                if (p === "dki jakarta") { d.setDate(d.getDate() + 1); estStr = "1 Hari Kerja setelah tanggal kirim"; }
+                else if (p === "jawa barat" || p === "banten") { d.setDate(d.getDate() + 2); estStr = "1 - 2 Hari Kerja setelah tanggal kirim"; }
+                else if (p === "jawa tengah" || p === "d.i. yogyakarta" || p === "jawa timur") { d.setDate(d.getDate() + 3); estStr = "2 - 3 Hari Kerja setelah tanggal kirim"; }
+                else { d.setDate(d.getDate() + 5); estStr = "3 - 5 Hari Kerja setelah tanggal kirim"; }
+                let estDate = d.toISOString().split('T')[0];
+                return `🚚 Estimasi Tiba: ${date} s.d ${estDate} (${estStr})`;
+            }
         }
 
-        async function calculateLocalOngkir() {
+        async function updateEstimateAndOngkir() {
             const prov = document.getElementById('chkProv')?.value || '';
             const city = document.getElementById('chkCity')?.value || '';
             const courier = document.getElementById('chkCourier')?.value || 'JNE Express';
+            const date = document.getElementById('chkDeliveryDate')?.value || '';
+            const time = document.getElementById('chkDeliveryTime')?.value || '';
             
-            if (!prov || !city) return;
+            const estimateCard = document.getElementById('estimateInfoCard');
+            const estimateText = document.getElementById('estimateText');
+            const warningText = document.getElementById('warningText');
+            
+            const estStr = calculateEstimation(prov, city, courier, date, time);
+            if (estStr) {
+                estimateCard.classList.remove('hidden');
+                estimateCard.classList.add('flex');
+                estimateText.innerText = estStr;
+                const isInstant = courier.toLowerCase().includes("grabexpress") || courier.toLowerCase().includes("gosend");
+                const isDKI = prov.toLowerCase() === "dki jakarta";
+                if (!isDKI && !isInstant) { warningText.classList.remove('hidden'); } 
+                else { warningText.classList.add('hidden'); }
+            } else {
+                estimateCard.classList.add('hidden');
+                estimateCard.classList.remove('flex');
+            }
 
+            if (!prov || !city) {
+                currentCalculatedOngkir = getFallbackRegionalOngkir(prov, city);
+                recalculateSummaryUI();
+                return;
+            }
             const dest = `${prov} ${city}`;
             try {
                 const res = await apiPost('check_ongkir', { destination: dest, courier: courier, weight: 1000 });
                 if (res && res.success && res.cost > 0) {
                     currentCalculatedOngkir = res.cost;
                 } else {
-                    currentCalculatedOngkir = 15000;
+                    currentCalculatedOngkir = getFallbackRegionalOngkir(prov, city);
                 }
             } catch (e) {
-                currentCalculatedOngkir = 15000;
+                currentCalculatedOngkir = getFallbackRegionalOngkir(prov, city);
             }
+            recalculateSummaryUI();
+        }
 
-            const subtotalText = document.getElementById('txtSubtotal')?.innerText || '0';
-            const subtotal = checkoutSelectedItems.reduce((sum, item) => sum + (item.product.price * item.quantity), 0);
-            
-            const ongkirEl = document.getElementById('txtOngkir');
-            const totalEl = document.getElementById('txtGrandTotal');
-            if (ongkirEl) ongkirEl.innerText = formatRupiah(currentCalculatedOngkir);
-            if (totalEl) totalEl.innerText = formatRupiah(subtotal + currentCalculatedOngkir);
+        async function applyVoucherCheckout() {
+            const code = document.getElementById('chkVoucher')?.value.trim();
+            if (!code) return;
+            try {
+                const res = await apiGet('check_voucher', { code: encodeURIComponent(code) });
+                if (res.valid) {
+                    const rawSubtotal = checkoutSelectedItems.reduce((sum, item) => sum + ((item.product.price + (item.extraPrice || 0)) * item.quantity), 0);
+                    const discPct = parseFloat(res.discount_percent || res.discount_amount || 0);
+                    currentVoucherDiscount = rawSubtotal * (discPct / 100.0);
+                    appliedVoucherCode = code;
+                    showMessage('Voucher Berhasil', `Diskon ${discPct}% berhasil dipasang!`);
+                    recalculateSummaryUI();
+                } else {
+                    showMessage('Voucher Tidak Valid', res.message || 'Kode tidak ditemukan atau sudah kadaluarsa.');
+                }
+            } catch(e) { showMessage('Error', 'Gagal memvalidasi voucher.'); }
+        }
+
+        function recalculateSummaryUI() {
+            const container = document.getElementById('summaryContainer');
+            if (!container) return;
+            const subtotal = checkoutSelectedItems.reduce((sum, item) => sum + ((item.product.price + (item.extraPrice || 0)) * item.quantity), 0);
+            const grandTotal = (subtotal - currentVoucherDiscount) + currentCalculatedOngkir;
+            let bonusHtml = '';
+            if (finalBonusItems.length > 0) {
+                bonusHtml = finalBonusItems.map(b => `<div class="flex justify-between text-[10px] text-pink-custom"><span>🎁 Bonus Gratis: ${b.product.name} (${b.quantity}x)</span><span>Rp 0</span></div>`).join('');
+            }
+            container.innerHTML = `
+                <div class="flex justify-between"><span>Subtotal Produk:</span><span>${formatRupiah(subtotal)}</span></div>
+                ${bonusHtml}
+                <div class="flex justify-between text-pink-custom"><span>Diskon Voucher (${appliedVoucherCode || '-'}):</span><span>-${formatRupiah(currentVoucherDiscount)}</span></div>
+                <div class="flex justify-between"><span>Ongkos Kirim Lokal:</span><span id="txtOngkir">${formatRupiah(currentCalculatedOngkir)}</span></div>
+                <hr class="my-1">
+                <div class="flex justify-between font-bold text-pink-custom text-sm"><span>Grand Total:</span><span id="txtGrandTotal">${formatRupiah(grandTotal)}</span></div>
+            `;
         }
 
         let checkoutPaymentMethods = [];
@@ -736,7 +881,6 @@
                 select.innerHTML = '<option value="COD / Bayar di Tempat">COD / Bayar di Tempat</option>';
             }
         }
-
         function togglePaymentProof(method) {
             const el = document.getElementById('paymentInstructions');
             if (!el) return;
@@ -750,7 +894,6 @@
                 el.textContent = 'Bayar tunai saat kurir tiba (COD).';
             }
         }
-
         async function submitOrderProcess(subtotal) {
             const name = document.getElementById('chkName')?.value.trim();
             const phone = document.getElementById('chkPhone')?.value.trim();
@@ -759,52 +902,55 @@
             const address = document.getElementById('chkAddress')?.value.trim();
             const benchmark = document.getElementById('chkBenchmark')?.value.trim();
             const deliveryDate = document.getElementById('chkDeliveryDate')?.value;
-            const deliveryTime = document.getElementById('chkDeliveryTime')?.value;
+            const rawDeliveryTime = document.getElementById('chkDeliveryTime')?.value;
             const courier = document.getElementById('chkCourier')?.value;
             const payment = document.getElementById('chkPayment')?.value;
             const fileInput = document.getElementById('proofFile');
-
-            // VALIDASI KETAT WAJIB ISI
-            if (!name || !phone || !prov || !city || !address || !benchmark || !deliveryDate || !deliveryTime) {
+            
+            if (!name || !phone || !prov || !city || !address || !benchmark || !deliveryDate || !rawDeliveryTime) {
                 return showMessage('Validasi Gagal', 'Harap isi Nama, No HP, Provinsi, Kota, Alamat, Patokan Rumah, serta Tanggal & Jam Pengiriman Kue!');
             }
-
             if (!fileInput.files[0] && !payment.includes('COD')) {
                 return showMessage('Validasi Gagal', 'Wajib mengunggah Bukti Pembayaran sebelum melakukan konfirmasi!');
             }
+            
+            const estimateText = document.getElementById('estimateInfoCard').classList.contains('hidden') ? "" : document.getElementById('estimateText').innerText;
+            const finalDTime = estimateText ? `${rawDeliveryTime}\n${estimateText}` : rawDeliveryTime;
 
             localStorage.setItem('cust_name', name);
             localStorage.setItem('cust_phone', phone);
             localStorage.setItem('cust_address', address);
             localStorage.setItem('cust_benchmark', benchmark);
-
+            
             let base64Proof = "";
             if (fileInput.files[0]) {
                 base64Proof = await toBase64(fileInput.files[0]);
             }
-
-            const fullAddress = `${address} (Patokan: ${benchmark}), ${city}, ${prov}`;
-            const grandTotal = subtotal + currentCalculatedOngkir;
+            
+            const fullAddress = `${address} (Patokan: ${benchmark}), Kota ${city}, ${prov}`;
+            const realSubtotal = checkoutSelectedItems.reduce((sum, item) => sum + ((item.product.price + (item.extraPrice || 0)) * item.quantity), 0);
+            const grandTotal = (realSubtotal - currentVoucherDiscount) + currentCalculatedOngkir;
+            
+            let finalPayloadItems = [...checkoutSelectedItems, ...finalBonusItems].map(i => ({
+                product_id: i.product.id, quantity: i.quantity, price: i.product.price + (i.extraPrice || 0),
+                size: i.selectedSize, flavor: i.selectedFlavor, custom_message: i.customMessage, cream_color: i.creamColor
+            }));
 
             const orderPayload = {
                 action: 'create_order',
                 name, phone, address: fullAddress, benchmark, payment, courier,
-                subtotal, shipping_fee: currentCalculatedOngkir, grand_total: grandTotal,
-                delivery_date: deliveryDate, delivery_time: deliveryTime,
+                subtotal: realSubtotal, discount: currentVoucherDiscount, shipping_fee: currentCalculatedOngkir, grand_total: grandTotal,
+                voucher_code: appliedVoucherCode,
+                delivery_date: deliveryDate, delivery_time: finalDTime,
                 payment_proof_base64: base64Proof,
-                items: checkoutSelectedItems.map(i => ({
-                    product_id: i.product.id, quantity: i.quantity, price: i.product.price,
-                    size: i.selectedSize, flavor: i.selectedFlavor, custom_message: i.customMessage, cream_color: i.creamColor
-                }))
+                items: finalPayloadItems
             };
-
             fetch(BASE_URL, {
                 method: 'POST',
                 headers: { 'Content-Type': 'text/plain' },
                 body: JSON.stringify(orderPayload)
             }).then(r => r.json()).then(res => {
                 if (res.success) {
-                    // Kurangi stok lokal & kosongkan keranjang
                     checkoutSelectedItems.forEach(ci => {
                         const p = products.find(x => x.id === ci.product.id);
                         if (p) p.stock = Math.max(0, p.stock - ci.quantity);
@@ -818,7 +964,6 @@
                 }
             });
         }
-
         function toBase64(file) {
             return new Promise((resolve, reject) => {
                 const reader = new FileReader();
@@ -827,7 +972,6 @@
                 reader.onerror = error => reject(error);
             });
         }
-
         // ================= 5. PROMO & AKUN / SELLER =================
         function showPromo() {
             window.currentViewFunc = showPromo;
@@ -847,7 +991,6 @@
                 </div>
             `;
         }
-
         function showAccount() {
             window.currentViewFunc = showAccount;
             setActiveNav('account');
@@ -865,7 +1008,9 @@
                         <button onclick="showPOSKasir()" class="w-full p-3 bg-white border border-orange-100 rounded-xl font-bold text-xs text-chocolate shadow-sm text-left">🖥 POS Kasir Offline Pro</button>
                         <button onclick="showManageProducts()" class="w-full p-3 bg-white border border-orange-100 rounded-xl font-bold text-xs text-chocolate shadow-sm text-left">🍰 Kelola & Tambah Produk</button>
                         <button onclick="showManageCategories()" class="w-full p-3 bg-white border border-orange-100 rounded-xl font-bold text-xs text-chocolate shadow-sm text-left">🏷️ Kelola Kategori Toko</button>
-                        <button onclick="showManagePromos()" class="w-full p-3 bg-white border border-orange-100 rounded-xl font-bold text-xs text-chocolate shadow-sm text-left">🎁 Kelola Promo & Voucher</button>
+                        <button onclick="showManagePromos()" class="w-full p-3 bg-white border border-orange-100 rounded-xl font-bold text-xs text-chocolate shadow-sm text-left">🎁 Kelola Promo & Banner</button>
+                        <button onclick="showManageBonusProducts()" class="w-full p-3 bg-white border border-orange-100 rounded-xl font-bold text-xs text-chocolate shadow-sm text-left">🎁 Kelola Produk Bonus (Free Item)</button>
+                        <button onclick="showManageVouchers()" class="w-full p-3 bg-white border border-orange-100 rounded-xl font-bold text-xs text-chocolate shadow-sm text-left">🏷️ Kelola Voucher Khusus Seller</button>
                         <button onclick="showManagePaymentMethods()" class="w-full p-3 bg-white border border-orange-100 rounded-xl font-bold text-xs text-chocolate shadow-sm text-left">💳 Kelola Metode Pembayaran</button>
                         <button onclick="showShippingSettings()" class="w-full p-3 bg-white border border-orange-100 rounded-xl font-bold text-xs text-chocolate shadow-sm text-left">🚚 Pengaturan Pengiriman Toko</button>
                         <button onclick="logoutSeller()" class="w-full p-3 bg-red-50 text-red-600 border border-red-200 rounded-xl font-bold text-xs text-left">🚪 Keluar Mode Seller</button>
@@ -888,7 +1033,6 @@
                 `;
             }
         }
-
         // ================= 6. FITUR SELLER & URUTAN PESANAN REVERSE =================
         function showSellerLoginModal() {
             const email = prompt("Email Seller:", "seller@aangcakeshop.com");
@@ -913,18 +1057,15 @@
                 }
             });
         }
-
         function logoutSeller() {
             isSellerLoggedIn = false;
             localStorage.removeItem('is_seller');
             showAccount();
         }
-
         function promptSearchOrders() {
             const phone = prompt("Masukkan Nomor HP / WhatsApp pemesan:");
             if (phone) showOrdersHistory(phone);
         }
-
         async function showOrdersHistory(phone) {
             window.currentViewFunc = () => showOrdersHistory(phone);
             const container = document.getElementById('contentContainer');
@@ -941,7 +1082,8 @@
                                     <span class="font-bold text-chocolate">📦 #${safeText(o.order_id || o.orderId)}</span>
                                     <span class="text-pink-custom font-bold">${safeText(o.status || 'Diproses')}</span>
                                 </div>
-                                <p class="text-[11px] text-gray-600">Total: ${formatRupiah(o.total || o.grand_total || 0)}</p>
+                                <p class="text-[11px] text-gray-600 whitespace-pre-wrap">Jadwal & Estimasi: ${safeText(o.delivery_schedule || o.deliverySchedule || 'Menunggu')}</p>
+                                <p class="text-[11px] text-gray-600">Total: ${formatRupiah(o.total || o.grand_total || o.total_price || 0)}</p>
                                 <p class="text-[11px] text-gray-600">Kurir: ${safeText(o.awb || o.resi || 'Menunggu Resi')}</p>
                             </div>
                         `).join('') : '<p class="text-xs text-gray-400">Tidak ada riwayat pesanan.</p>'}
@@ -951,7 +1093,6 @@
                 showMessage('Error', 'Gagal memuat pesanan.');
             }
         }
-
         // KELOLA PESANAN MASUK (REVERSE SELLER)
         async function showManageOrders() {
             if (!requireSeller()) return;
@@ -972,11 +1113,12 @@
                     const courier = o.courier || o.courier_service || '-';
                     const resi = o.awb || o.resi || '';
                     const date = o.created_at || o.date || '-';
+                    const delSched = o.delivery_schedule || o.deliverySchedule || '-';
                     const total = o.total || o.grand_total || o.total_price || 0;
                     const proof = o.proof_url || o.proofUrl || '';
                     return `<article class="bg-white p-4 rounded-2xl border border-orange-100 space-y-3">
                         <div class="flex justify-between gap-2"><strong class="text-sm text-chocolate">📦 #${safeText(id)}</strong></div>
-                        <p class="text-xs text-gray-600">📅 ${safeText(date)}<br>👤 ${safeText(customer)}<br>📍 ${safeText(address)}<br>💰 ${formatRupiah(total)}<br>🚚 ${safeText(courier)}<br>Resi: ${safeText(resi || 'Belum diinput')}</p>
+                        <p class="text-[11px] text-gray-600 whitespace-pre-wrap">📅 ${safeText(date)}<br>⏰ Jadwal: ${safeText(delSched)}<br>👤 ${safeText(customer)}<br>📍 ${safeText(address)}<br>💰 ${formatRupiah(total)}<br>🚚 ${safeText(courier)}<br>Resi: ${safeText(resi || 'Belum diinput')}</p>
                         ${proof ? `<a href="${safeText(proof)}" target="_blank" rel="noopener" class="text-xs font-bold text-pink-custom underline">Lihat bukti pembayaran</a>` : '<p class="text-xs text-gray-400">Bukti bayar tidak tersedia / COD.</p>'}
                         <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
                             <label class="text-xs text-gray-600">Status pesanan
@@ -985,7 +1127,7 @@
                                 </select>
                             </label>
                             <label class="text-xs text-gray-600">Nomor resi
-                                <input id="orderResi_${index}" placeholder="Masukkan nomor resi" class="w-full mt-1 p-2 rounded-lg border border-orange-200 text-xs">
+                                <input id="orderResi_${index}" value="${safeText(resi)}" placeholder="Masukkan nomor resi" class="w-full mt-1 p-2 rounded-lg border border-orange-200 text-xs">
                             </label>
                         </div>
                         <div class="flex flex-wrap gap-2">
@@ -1010,7 +1152,6 @@
                 container.innerHTML = `<div class="space-y-3"><button onclick="showAccount()" class="text-xs font-bold text-chocolate">← Kembali</button><h2 class="font-bold text-chocolate">Kelola Pesanan</h2><p class="p-3 rounded-xl bg-red-50 text-red-700 text-xs">${safeText(error.message)}</p><button onclick="showManageOrders()" class="px-4 py-3 bg-pink-btn text-white rounded-xl text-xs font-bold">Coba Lagi</button></div>`;
             }
         }
-
         async function saveOrderStatus(orderId, index) {
             const status = document.getElementById(`orderStatus_${index}`)?.value;
             if (!status) return;
@@ -1020,7 +1161,6 @@
                 showManageOrders();
             } catch (error) { showMessage('Gagal menyimpan status', error.message); }
         }
-
         async function saveOrderResi(orderId, index) {
             const resi = document.getElementById(`orderResi_${index}`)?.value.trim();
             if (!resi) return showMessage('Nomor Resi', 'Masukkan nomor resi terlebih dahulu.');
@@ -1030,7 +1170,6 @@
                 showManageOrders();
             } catch (error) { showMessage('Gagal menyimpan resi', error.message); }
         }
-
         function printShippingLabelByIndex(index) {
             const o = (window.currentSellerOrders || [])[index];
             if (!o) return showMessage('Cetak Label', 'Data pesanan tidak ditemukan.');
@@ -1039,10 +1178,10 @@
                 customer: o.customer || o.user_id || o.name || 'Pelanggan',
                 address: o.address || '-',
                 courier: o.courier || o.courier_service || '-',
+                schedule: o.delivery_schedule || o.deliverySchedule || '-',
                 total: Number(o.total || o.grand_total || o.total_price) || 0
             });
         }
-
         function printShippingLabel(order) {
             const popup = window.open('', '_blank', 'width=500,height=700');
             if (!popup) return showMessage('Cetak Label', 'Izinkan pop-up browser untuk mencetak label.');
@@ -1051,9 +1190,137 @@
                 <div class="label"><h2>LABEL PENGIRIMAN PAKET<br>AANG CAKESHOP</h2><hr>
                 <p><b>No. Pesanan:</b> ${safeText(order.id)}</p><p><b>Penerima:</b> ${safeText(order.customer)}</p>
                 <p><b>Alamat:</b> ${safeText(order.address)}</p><p><b>Kurir:</b> ${safeText(order.courier)}</p>
+                <p><b>Jadwal & Estimasi:</b><br>${safeText(order.schedule).replace(/\\n/g, '<br>')}</p>
                 <p><b>Total / COD:</b> ${formatRupiah(order.total)}</p><hr><p>Harap tangani dengan hati-hati — produk kue mudah rusak.</p></div>
                 <script>window.onload=()=>window.print()<\/script></body></html>`);
             popup.document.close();
+        }
+        
+        // ================= KELOLA VOUCHER & BONUS (SELLER) =================
+        function showManageVouchers() {
+            if (!requireSeller()) return;
+            window.currentViewFunc = showManageVouchers;
+            sellerPage('Kelola Voucher Khusus Seller', '<p class="text-xs text-gray-500">Memuat voucher...</p>');
+            const container = document.getElementById('contentContainer');
+            apiGet('get_vouchers').then(res => {
+                let vList = res.data || [];
+                const cards = vList.length ? vList.map(v => `<article class="bg-white p-3 rounded-2xl border border-orange-100 flex flex-col gap-1">
+                    <p class="font-bold text-chocolate text-sm">🏷️ Kode: ${safeText(v.code)}</p>
+                    <p class="text-xs text-pink-custom font-bold">🔥 Diskon: ${v.discount_percent || v.discount_amount}%</p>
+                    <p class="text-xs text-gray-500">📅 Berlaku: ${safeText(v.start_date)} s.d ${safeText(v.end_date)}</p>
+                    <button onclick="deleteSellerVoucher('${safeText(v.id || v.voucher_id)}')" class="mt-2 w-full py-2 bg-red-50 text-red-600 border border-red-200 text-xs font-bold rounded-xl">🗑 Hapus Voucher</button>
+                </article>`).join('') : '<p class="text-xs text-gray-500 text-center py-4 bg-white rounded-xl border border-orange-100">Belum ada voucher aktif.</p>';
+                container.innerHTML = `
+                    <div class="space-y-4 pb-20">
+                        <button onclick="showAccount()" class="px-3 py-2 rounded-xl bg-white border border-orange-200 text-xs font-bold text-chocolate">← Kembali ke Seller Center</button>
+                        <div class="bg-gradient-to-r from-pink-100 to-orange-100 border border-pink-200 rounded-2xl p-4">
+                            <h2 class="text-lg font-extrabold text-chocolate">Kelola Voucher Toko</h2>
+                        </div>
+                        ${sellerButton('➕ Tambah Voucher Baru', "showFormVoucher()", 'w-full')}
+                        <div class="space-y-3">${cards}</div>
+                    </div>
+                `;
+            });
+        }
+        function showFormVoucher() {
+            if (!requireSeller()) return;
+            sellerPage('Buat Voucher Diskon', `
+                <form id="sellerVoucherForm" class="bg-white p-4 rounded-2xl border border-orange-100 space-y-3">
+                    ${sellerField('Kode Voucher (Contoh: DISKONLEBARAN)', 'code', '', 'text', 'KODE')}
+                    ${sellerField('Besar Diskon (%)', 'discount_percent', '', 'number', '15')}
+                    ${sellerField('Tanggal Mulai (YYYY-MM-DD)', 'start_date', '', 'date', '')}
+                    ${sellerField('Tanggal Selesai (YYYY-MM-DD)', 'end_date', '', 'date', '')}
+                    <button class="w-full py-3 rounded-xl bg-pink-btn text-white font-bold text-sm" type="submit">💾 Simpan Voucher</button>
+                    <button class="w-full py-3 rounded-xl bg-white border border-orange-200 text-chocolate font-bold text-sm" type="button" onclick="showManageVouchers()">Batal</button>
+                </form>
+            `);
+            document.getElementById('sellerVoucherForm').addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const fd = new FormData(e.currentTarget);
+                const code = String(fd.get('code') || '').trim().toUpperCase();
+                const disc = Number(fd.get('discount_percent') || 0);
+                if (!code || disc <= 0) return showMessage('Gagal', 'Kode voucher & diskon % wajib diisi!');
+                const vId = "VCH-" + new Date().getTime();
+                try {
+                    await apiPost('save_voucher', { id: vId, code, discount_percent: disc, start_date: fd.get('start_date'), end_date: fd.get('end_date') });
+                    showMessage('Sukses', 'Voucher berhasil disimpan!');
+                    showManageVouchers();
+                } catch(err) { showMessage('Error', err.message); }
+            });
+        }
+        async function deleteSellerVoucher(id) {
+            if(!confirm('Yakin ingin menghapus voucher ini?')) return;
+            try {
+                await apiPost('delete_voucher', { id });
+                showMessage('Sukses', 'Voucher dihapus!');
+                showManageVouchers();
+            } catch(e) { showMessage('Error', e.message); }
+        }
+
+        function showManageBonusProducts() {
+            if (!requireSeller()) return;
+            window.currentViewFunc = showManageBonusProducts;
+            sellerPage('Kelola Produk Bonus (Free Item)', '<p class="text-xs text-gray-500">Memuat data bonus...</p>');
+            const container = document.getElementById('contentContainer');
+            apiGet('get_bonus_products').then(res => {
+                let arr = res.data || [];
+                const cards = arr.length ? arr.map(b => {
+                    const trigName = products.find(p => p.id === b.trigger_product_id)?.name || b.trigger_product_id;
+                    const bonName = products.find(p => p.id === b.bonus_product_id)?.name || b.bonus_product_id;
+                    return `<article class="bg-white p-3 rounded-2xl border border-orange-100 flex flex-col gap-1">
+                        <p class="font-bold text-chocolate text-sm">🎁 Jika Beli: ${safeText(trigName)}</p>
+                        <p class="text-xs text-pink-custom font-bold">✨ Gratis Bonus: ${safeText(bonName)} (Rp 0)</p>
+                        <button onclick="deleteSellerBonus('${safeText(b.id)}')" class="mt-2 w-full py-2 bg-red-50 text-red-600 border border-red-200 text-xs font-bold rounded-xl">🗑 Hapus Aturan Bonus</button>
+                    </article>`;
+                }).join('') : '<p class="text-xs text-gray-500 text-center py-4 bg-white rounded-xl border border-orange-100">Belum ada aturan bonus aktif.</p>';
+                container.innerHTML = `
+                    <div class="space-y-4 pb-20">
+                        <button onclick="showAccount()" class="px-3 py-2 rounded-xl bg-white border border-orange-200 text-xs font-bold text-chocolate">← Kembali ke Seller Center</button>
+                        <div class="bg-gradient-to-r from-pink-100 to-orange-100 border border-pink-200 rounded-2xl p-4">
+                            <h2 class="text-lg font-extrabold text-chocolate">Kelola Produk Bonus</h2>
+                        </div>
+                        ${sellerButton('➕ Tambah Aturan Bonus Baru', "showFormBonusProduct()", 'w-full')}
+                        <div class="space-y-3">${cards}</div>
+                    </div>
+                `;
+            });
+        }
+        function showFormBonusProduct() {
+            if (!requireSeller()) return;
+            const options = products.map(p => `<option value="${safeText(p.id)}">${safeText(p.name)}</option>`).join('');
+            sellerPage('Tambah Aturan Bonus', `
+                <form id="sellerBonusForm" class="bg-white p-4 rounded-2xl border border-orange-100 space-y-3">
+                    <label class="block space-y-1"><span class="text-xs font-bold text-chocolate">Produk Syarat (Beli)</span>
+                        <select name="trigger_id" class="w-full p-3 rounded-xl border border-orange-200 bg-white text-sm">${options}</select>
+                    </label>
+                    <label class="block space-y-1"><span class="text-xs font-bold text-chocolate">Produk Gratis (Bonus)</span>
+                        <select name="bonus_id" class="w-full p-3 rounded-xl border border-orange-200 bg-white text-sm">${options}</select>
+                    </label>
+                    <button class="w-full py-3 rounded-xl bg-pink-btn text-white font-bold text-sm" type="submit">💾 Simpan Aturan Bonus</button>
+                    <button class="w-full py-3 rounded-xl bg-white border border-orange-200 text-chocolate font-bold text-sm" type="button" onclick="showManageBonusProducts()">Batal</button>
+                </form>
+            `);
+            document.getElementById('sellerBonusForm').addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const fd = new FormData(e.currentTarget);
+                const tId = fd.get('trigger_id');
+                const bId = fd.get('bonus_id');
+                if (tId === bId) return showMessage('Gagal', 'Produk syarat dan bonus tidak boleh sama!');
+                const id = "BONUS-" + new Date().getTime();
+                try {
+                    await apiPost('save_bonus_product', { id, trigger_product_id: tId, bonus_product_id: bId });
+                    showMessage('Sukses', 'Aturan bonus berhasil disimpan!');
+                    showManageBonusProducts();
+                } catch(err) { showMessage('Error', err.message); }
+            });
+        }
+        async function deleteSellerBonus(id) {
+            if(!confirm('Yakin ingin menghapus aturan bonus ini?')) return;
+            try {
+                await apiPost('delete_bonus_product', { id });
+                showMessage('Sukses', 'Aturan bonus dihapus!');
+                showManageBonusProducts();
+            } catch(e) { showMessage('Error', e.message); }
         }
 
         // ================= HELPER UTAMA SELLER & API =================
@@ -1068,7 +1335,6 @@
             if (!result || result.success === false) throw new Error(result?.message || 'Permintaan gagal.');
             return result;
         }
-
         async function apiPost(action, data = {}) {
             const response = await fetch(BASE_URL, {
                 method: 'POST',
@@ -1081,7 +1347,6 @@
             if (!result || result.success === false) throw new Error(result?.message || 'Permintaan gagal.');
             return result;
         }
-
         function requireSeller() {
             if (!isSellerLoggedIn) {
                 showMessage('Akses Seller', 'Silakan login sebagai seller terlebih dahulu.');
@@ -1090,7 +1355,6 @@
             }
             return true;
         }
-
         function sellerPage(title, body, back = 'showAccount()') {
             const container = document.getElementById('contentContainer');
             window.currentViewFunc = showAccount;
@@ -1104,17 +1368,14 @@
                     ${body}
                 </div>`;
         }
-
         function sellerField(label, name, value = '', type = 'text', placeholder = '') {
             return `<label class="block space-y-1"><span class="text-xs font-bold text-chocolate">${label}</span>
                 <input name="${safeText(name)}" value="${safeText(value)}" type="${safeText(type)}" placeholder="${safeText(placeholder)}"
                 class="w-full p-3 rounded-xl border border-orange-200 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-pink-200"></label>`;
         }
-
         function sellerButton(label, onclick, extra = '') {
             return `<button type="button" onclick="${safeText(onclick)}" class="px-4 py-3 rounded-xl bg-pink-btn text-white font-bold text-xs ${safeText(extra)}">${label}</button>`;
         }
-
         function readFileAsDataURL(file) {
             return new Promise((resolve, reject) => {
                 const reader = new FileReader();
@@ -1123,14 +1384,13 @@
                 reader.readAsDataURL(file);
             });
         }
-
         async function refreshSellerData() {
-            const [p, c, pr] = await Promise.all([apiGet('products'), apiGet('categories'), apiGet('promos')]);
+            const [p, c, pr, b] = await Promise.all([apiGet('products'), apiGet('categories'), apiGet('promos'), apiGet('get_bonus_products')]);
             if (p.success) products = p.data || [];
             if (c.success) categories = c.data || [];
             if (pr.success) promos = pr.data || [];
+            if (b.success) bonusRulesList = b.data || [];
         }
-
         function toggleFavorite(prodId) {
             if (favorites.includes(prodId)) {
                 favorites = favorites.filter(id => id !== prodId);
@@ -1142,7 +1402,6 @@
             localStorage.setItem('favs', JSON.stringify(favorites));
             if (window.currentViewFunc) window.currentViewFunc();
         }
-
         function showFavorites() {
             window.currentViewFunc = showFavorites;
             const container = document.getElementById('contentContainer');
@@ -1157,15 +1416,12 @@
                 </div>
             `;
         }
-
         function showNotifications() {
             showMessage('Notifikasi', '💬 Pesan baru dari Chat Seller!\n📦 Pesanan sedang diproses.\n🎉 Diskon Spesial Hari Ini!');
         }
-
         function checkSellerChatAccess() {
             showChatWindow('ALL_GENERAL');
         }
-
         async function showChatWindow(prodId) {
             window.currentViewFunc = () => showChatWindow(prodId);
             const container = document.getElementById('contentContainer');
@@ -1184,7 +1440,6 @@
             `;
             loadChatMessages(prodId);
         }
-
         async function loadChatMessages(prodId) {
             const logsEl = document.getElementById('chatLogs');
             if (!logsEl) return;
@@ -1204,7 +1459,6 @@
                 logsEl.innerHTML = `<p class="text-xs text-gray-400 text-center">Gagal memuat riwayat chat.</p>`;
             }
         }
-
         function sendChatMessage(prodId) {
             const input = document.getElementById('chatInput');
             const msg = input.value.trim();
@@ -1222,7 +1476,6 @@
                 showMessage('Gagal', 'Pesan gagal dikirim: ' + err.message);
             });
         }
-
         function getDefaultCategories() {
             return [
                 { id: "1", name: "Kue Ulang Tahun", icon: "🎂" },
@@ -1232,7 +1485,6 @@
                 { id: "5", name: "Dessert Box", icon: "📦" }
             ];
         }
-
         // Mode Seller Fitur Lengkap
         async function showSellerDashboard() {
             if (!requireSeller()) return;
@@ -1258,7 +1510,6 @@
                 if (el) el.textContent = 'Tidak tersedia';
             }
         }
-
         async function showManageProducts() {
             if (!requireSeller()) return;
             await refreshSellerData();
@@ -1282,12 +1533,11 @@
                 <div class="space-y-3 mt-3">${cards}</div>
             `);
         }
-
         async function showProductForm(productId = '') {
             if (!requireSeller()) return;
             const product = products.find(p => String(p.id) === String(productId));
             const cats = categories.length ? categories : getDefaultCategories();
-            const categoryOptions = cats.map(c => `<option value="${safeText(c.name)}" ${product && product.category === c.name ? 'selected' : ''}>${safeText(c.name)}</option>`).join('');
+            const categoryOptions = cats.map(c => `<option value="${safeText(c.name)}" ${product&&product.category===c.name?'selected':''}>${safeText(c.name)}</option>`).join('');
             const oldImages = product ? (product.images && product.images.length ? product.images : [product.image]).filter(Boolean) : [];
             
             sellerPage(product ? 'Edit Produk Kue' : 'Tambah Produk Kue Baru', `
@@ -1334,7 +1584,6 @@
                 } catch (error) { showMessage('Gagal menyimpan produk', error.message); }
             });
         }
-
         async function deleteSellerProduct(id) {
             if (!confirm('Yakin ingin menghapus produk ini?')) return;
             try {
@@ -1344,7 +1593,6 @@
                 showManageProducts();
             } catch (error) { showMessage('Gagal menghapus produk', error.message); }
         }
-
         // Jalankan Pemuatan Data Awal Web App
         loadAllData();
     </script>
