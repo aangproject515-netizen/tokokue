@@ -530,7 +530,7 @@
             currentQty = 1;
             saveCartAndNotify(p.name);
         }
-        function directCheckout(prodId) {
+        async function directCheckout(prodId) {
             const p = products.find(item => item.id === prodId);
             if (!p) return;
             const size = document.getElementById('dtlSize')?.value || 'Standar';
@@ -540,6 +540,12 @@
             const extra = extractExtraPrice(size) + extractExtraPrice(flavor) + extractExtraPrice(cream);
             const tempItem = { product: p, quantity: currentQty, selectedSize: size, selectedFlavor: flavor, customMessage: msg, creamColor: cream, extraPrice: extra, selected: true, parentProductId: "" };
             
+            // [NEW FIX] Pastikan bonus rules terbaru ditarik secara background sebelum pindah ke checkout langsung
+            try {
+                const res = await fetch(`${BASE_URL}?action=get_bonus_products`).then(r => r.json());
+                if (res && res.data) bonusRulesList = res.data;
+            } catch(e) {}
+
             const checkoutList = [tempItem];
             checkoutList.push(...getAttachedBonusesForMainItemWeb(tempItem));
             showCheckout(checkoutList);
@@ -549,9 +555,29 @@
             showMessage('Keranjang', `${name} berhasil ditambahkan ke keranjang!`);
         }
         
+        // --- BLOK REVISI KERANJANG (MEMASTIKAN BONUS TERBARU DITARIK DI BACKGROUND) ---
         function showCart() {
             window.currentViewFunc = showCart;
             setActiveNav('cart');
+            
+            // Diam-diam update data bonus dari server (untuk mengatasi isu cache)
+            fetch(`${BASE_URL}?action=get_bonus_products`)
+                .then(r => r.json())
+                .then(res => {
+                    if (res && res.success && res.data) {
+                        const oldDataStr = JSON.stringify(bonusRulesList);
+                        const newDataStr = JSON.stringify(res.data);
+                        if (oldDataStr !== newDataStr) {
+                            bonusRulesList = res.data;
+                            if (window.currentViewFunc === showCart) renderCartUI();
+                        }
+                    }
+                }).catch(e => console.warn(e));
+
+            renderCartUI();
+        }
+
+        function renderCartUI() {
             const container = document.getElementById('contentContainer');
             if (!cart.length) {
                 container.innerHTML = `
@@ -587,7 +613,7 @@
                     </div>
                 `;
                 
-                // Menambahkan blok bonus produk otomatis tepat di bawah item jika dicentang
+                // Render list bonus di bawah produk utama jika checkbox dicentang
                 if (item.selected !== false) {
                     const attachedBonuses = getAttachedBonusesForMainItemWeb(item);
                     attachedBonuses.forEach(b => {
@@ -639,7 +665,7 @@
             let finalCheckoutItems = [];
             selectedMainItems.forEach(mainItem => {
                 finalCheckoutItems.push(mainItem);
-                // Dorong semua bonus gabungan (yang tidak bisa dihilangkan)
+                // Dorong semua bonus gabungan
                 finalCheckoutItems.push(...getAttachedBonusesForMainItemWeb(mainItem));
             });
             showCheckout(finalCheckoutItems);
@@ -649,19 +675,19 @@
             if (!cart[idx]) return;
             cart[idx].selected = !!checked;
             localStorage.setItem('cart', JSON.stringify(cart));
-            showCart();
+            renderCartUI();
         }
         function toggleSelectAllCart(checked) {
             cart.forEach(item => item.selected = !!checked);
             localStorage.setItem('cart', JSON.stringify(cart));
-            showCart();
+            renderCartUI();
         }
         function updateCartQty(idx, val) {
             const stock = Number(cart[idx].product.stock) || 0;
             cart[idx].quantity = Math.min(stock, cart[idx].quantity + val);
             if (cart[idx].quantity <= 0) cart.splice(idx, 1);
             localStorage.setItem('cart', JSON.stringify(cart));
-            showCart();
+            renderCartUI();
         }
 
         let checkoutSelectedItems = [];
@@ -897,7 +923,7 @@
             const grandTotal = (subtotal - currentVoucherDiscount) + currentCalculatedOngkir;
             let bonusHtml = '';
             
-            // Filter dan tampilin Bonus Items dari checkoutSelectedItems 
+            // Filter dan tampilin Bonus Items dari checkoutSelectedItems
             const bonusItems = checkoutSelectedItems.filter(i => i.parentProductId);
             if (bonusItems.length > 0) {
                 bonusHtml = bonusItems.map(b => `<div class="flex justify-between text-[10px] text-pink-custom"><span>🎁 Bonus Gratis: ${b.product.name} (${b.quantity}x)</span><span>Rp 0</span></div>`).join('');
@@ -1333,6 +1359,7 @@
                 `;
             });
         }
+        
         function showFormBonusProduct() {
             if (!requireSeller()) return;
             const options = products.map(p => `<option value="${safeText(p.id)}">${safeText(p.name)}</option>`).join('');
@@ -1348,6 +1375,7 @@
                     <button class="w-full py-3 rounded-xl bg-white border border-orange-200 text-chocolate font-bold text-sm" type="button" onclick="showManageBonusProducts()">Batal</button>
                 </form>
             `);
+            
             document.getElementById('sellerBonusForm').addEventListener('submit', async (e) => {
                 e.preventDefault();
                 const fd = new FormData(e.currentTarget);
@@ -1358,15 +1386,26 @@
                 try {
                     await apiPost('save_bonus_product', { id, trigger_product_id: tId, bonus_product_id: bId });
                     showMessage('Sukses', 'Aturan bonus berhasil disimpan!');
+                    
+                    // [NEW FIX] Pastikan data terupdate langsung setelah Seller menyimpannya
+                    const res = await apiGet('get_bonus_products');
+                    if (res && res.data) bonusRulesList = res.data;
+                    
                     showManageBonusProducts();
                 } catch(err) { showMessage('Error', err.message); }
             });
         }
+        
         async function deleteSellerBonus(id) {
             if(!confirm('Yakin ingin menghapus aturan bonus ini?')) return;
             try {
                 await apiPost('delete_bonus_product', { id });
                 showMessage('Sukses', 'Aturan bonus dihapus!');
+                
+                // [NEW FIX] Pastikan data terupdate langsung setelah Seller menghapusnya
+                const res = await apiGet('get_bonus_products');
+                if (res && res.data) bonusRulesList = res.data;
+                
                 showManageBonusProducts();
             } catch(e) { showMessage('Error', e.message); }
         }
